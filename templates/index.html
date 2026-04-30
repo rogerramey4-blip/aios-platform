@@ -113,6 +113,18 @@
 
   </div>
 
+  <!-- Admin panel link for super-admins -->
+  {% if session.get('aios_auth') %}
+  <div style="margin-top:24px;display:flex;gap:12px;justify-content:center;">
+    <a href="/admin/" style="background:rgba(209,36,47,0.12);color:var(--red);border:1px solid rgba(209,36,47,0.3);border-radius:8px;padding:10px 24px;font-size:13px;font-weight:700;text-decoration:none;letter-spacing:0.5px;">
+      ⚙ Admin Panel — Client Management
+    </a>
+    <a href="/onboard" style="background:rgba(227,179,65,0.1);color:var(--gold);border:1px solid rgba(227,179,65,0.3);border-radius:8px;padding:10px 24px;font-size:13px;font-weight:700;text-decoration:none;letter-spacing:0.5px;">
+      + New Client Account
+    </a>
+  </div>
+  {% endif %}
+
   <div class="landing-coming-soon" style="margin-top:32px;">More industries coming soon</div>
   <div class="coming-grid">
     <span class="coming-chip">💼 Financial Advisory</span>
@@ -123,7 +135,7 @@
   </div>
 
   <div class="landing-footer">
-    Powered by <span>AI Evolution Services</span> &nbsp;·&nbsp; AIOS v2.0
+    Powered by <span>AI Evolution Services</span> &nbsp;·&nbsp; AIOS v3.0
     &nbsp;·&nbsp;
     <a href="#" onclick="toggleTheme();return false;" style="color:var(--text-muted);">Toggle Theme</a>
     &nbsp;·&nbsp;

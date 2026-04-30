@@ -1,0 +1,107 @@
+/* AIOS Admin Panel Styles */
+
+.btn-primary {
+  background: var(--gold);
+  color: #000;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 22px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: opacity 0.15s;
+}
+.btn-primary:hover { opacity: 0.88; }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn-sm {
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: background 0.15s, color 0.15s;
+}
+.btn-sm:hover { background: var(--border); color: var(--text-primary); }
+
+/* Detail grid for tenant info */
+.detail-grid { display: flex; flex-direction: column; gap: 0; }
+.detail-row  {
+  display: flex;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  gap: 12px;
+}
+.detail-lbl {
+  flex: 0 0 110px;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+.detail-editable {
+  flex: 1;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  padding: 2px 4px;
+  transition: border-color 0.15s;
+}
+.detail-editable:focus {
+  outline: none;
+  border-bottom-color: var(--gold);
+}
+select.detail-editable {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 8px;
+}
+
+/* Form styles used in onboard.html */
+.form-group  { display: flex; flex-direction: column; gap: 6px; }
+.form-label  {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.form-input {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 9px 12px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  width: 100%;
+  transition: border-color 0.15s;
+}
+.form-input:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+
+/* Industry badge colors extended for admin */
+.badge.b-agency       { background: rgba(88,166,255,0.12); color: #58a6ff; }
+.badge.b-legal        { background: rgba(227,179,65,0.12);  color: var(--gold); }
+.badge.b-construction { background: rgba(255,123,0,0.12);   color: #ff7b00; }
+.badge.b-medical      { background: rgba(63,185,80,0.12);   color: var(--green); }
+.badge.b-brokerage    { background: rgba(188,140,255,0.12); color: #bc8cff; }

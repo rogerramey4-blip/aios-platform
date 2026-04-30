@@ -1,6 +1,7 @@
 """
 AIOS — Email OTP Auth
-Allowed: roger@, kevin@, charlene@ aievolutionservices.com
+Super-admins: roger@, kevin@, charlene@ aievolutionservices.com
+Tenant users: any active email in TenantUser table
 """
 
 import os
@@ -8,10 +9,11 @@ import time
 import secrets
 import smtplib
 import logging
+from datetime import datetime
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from functools import wraps
-from flask import session, redirect, url_for
+from flask import session, redirect, url_for, request
 
 log = logging.getLogger(__name__)
 
@@ -52,9 +54,20 @@ def _locked_out(email: str) -> tuple:
     return False, 0
 
 
+def _lookup_tenant_user(email: str):
+    """Returns TenantUser if the email belongs to an active tenant, else None."""
+    try:
+        from models import TenantUser
+        return TenantUser.query.filter_by(email=email, active=True).first()
+    except Exception:
+        return None
+
+
 def request_otp(email: str) -> tuple:
     email = email.strip().lower()
-    if email not in ALLOWED_EMAILS:
+    is_admin  = email in ALLOWED_EMAILS
+    is_tenant = bool(_lookup_tenant_user(email))
+    if not is_admin and not is_tenant:
         return False, 'That email address is not authorized to access this system.'
     locked, secs = _locked_out(email)
     if locked:
@@ -89,6 +102,23 @@ def verify_otp(email: str, submitted: str) -> tuple:
 
 
 def require_auth(f):
+    """Allows both super-admins and active tenant users."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        now = time.time()
+        is_admin  = (session.get('aios_auth') and
+                     now - session.get('aios_login_ts', 0) <= SESSION_TTL)
+        is_tenant = (session.get('tenant_auth') and
+                     now - session.get('tenant_login_ts', 0) <= SESSION_TTL)
+        if not is_admin and not is_tenant:
+            session.clear()
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated
+
+
+def require_admin(f):
+    """Restricts to super-admins only (the 3 authorized emails)."""
     @wraps(f)
     def decorated(*args, **kwargs):
         if not session.get('aios_auth'):
@@ -98,6 +128,18 @@ def require_auth(f):
             return redirect(url_for('login'))
         return f(*args, **kwargs)
     return decorated
+
+
+def current_tenant_id() -> str | None:
+    return session.get('tenant_id')
+
+
+def current_email() -> str:
+    return session.get('aios_email') or session.get('tenant_email', '')
+
+
+def is_super_admin() -> bool:
+    return bool(session.get('aios_auth'))
 
 
 def _deliver(to: str, code: str):

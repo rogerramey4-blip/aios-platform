@@ -1,0 +1,130 @@
+{% extends "admin/base.html" %}
+{% set active = "overview" %}
+{% block title %}Client Overview{% endblock %}
+
+{% block main %}
+<div class="page-header">
+  <div>
+    <div class="page-title">Client Management</div>
+    <div class="page-sub">All tenants · real-time health &amp; status</div>
+  </div>
+  <a href="/onboard" class="btn-primary">+ New Client Account</a>
+</div>
+
+<div class="kpi-row">
+  {% for k in kpis %}
+  <div class="kpi-card">
+    <div class="kpi-label">{{ k.label }}</div>
+    <div class="kpi-value">{{ k.value }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="panel" style="margin-bottom:20px;">
+  <div class="panel-hdr">
+    <div class="panel-title"><span class="panel-icon">◎</span>ALL CLIENT ACCOUNTS</div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <input id="search" type="text" placeholder="Search clients…" style="background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:12px;color:var(--text-primary);width:200px;" oninput="filterClients(this.value)">
+      <select id="filterIndustry" onchange="filterClients(document.getElementById('search').value)" style="background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:12px;color:var(--text-primary);">
+        <option value="">All Industries</option>
+        <option value="agency">Agency</option>
+        <option value="legal">Legal</option>
+        <option value="construction">Construction</option>
+        <option value="medical">Medical</option>
+        <option value="brokerage">Brokerage</option>
+      </select>
+    </div>
+  </div>
+  <table class="health-table" id="clientTable">
+    <thead>
+      <tr>
+        <th>Firm</th>
+        <th>Industry</th>
+        <th>Plan</th>
+        <th>Status</th>
+        <th>Users</th>
+        <th>Docs</th>
+        <th>Added</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for e in tenants %}
+      <tr data-firm="{{ e.tenant.firm_name|lower }}" data-industry="{{ e.tenant.industry }}">
+        <td>
+          <a href="/admin/client/{{ e.tenant.id }}" style="font-weight:700;color:var(--text-primary);text-decoration:none;">
+            {{ e.icon }} {{ e.tenant.firm_name }}
+          </a>
+          {% if e.tenant.firm_sub %}<span style="color:var(--text-muted);font-size:11px;"> {{ e.tenant.firm_sub }}</span>{% endif %}
+        </td>
+        <td><span class="badge b-{{ e.tenant.industry }}">{{ e.tenant.industry }}</span></td>
+        <td><span style="font-size:12px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:1px;">{{ e.tenant.plan }}</span></td>
+        <td>
+          <span class="hdot hdot-{% if e.tenant.status == 'active' %}green{% elif e.tenant.status == 'suspended' %}red{% else %}amber{% endif %}"></span>
+          <span style="font-size:12px;color:var(--text-secondary);">{{ e.tenant.status }}</span>
+        </td>
+        <td style="text-align:center;font-weight:600;">{{ e.users }}</td>
+        <td style="text-align:center;font-weight:600;">{{ e.docs }}</td>
+        <td style="color:var(--text-muted);font-size:11px;">
+          {{ e.tenant.created_at.strftime('%b %d, %Y') if e.tenant.created_at else '—' }}
+        </td>
+        <td>
+          <div style="display:flex;gap:6px;">
+            <a href="/admin/client/{{ e.tenant.id }}" class="btn-sm">View</a>
+            <a href="/{{ e.tenant.industry }}" class="btn-sm" style="opacity:0.6;">Dashboard</a>
+          </div>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:32px;">No client accounts yet — <a href="/onboard">create the first one</a></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="two-col">
+  <div class="panel">
+    <div class="panel-hdr"><div class="panel-title"><span class="panel-icon">⚡</span>RECENT SECURITY EVENTS</div><a href="/admin/audit" class="panel-link">Full Log →</a></div>
+    {% for e in recent_audits %}
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);">
+      <span class="hdot hdot-{% if e.result == 'success' %}green{% elif e.result == 'failure' %}red{% else %}amber{% endif %}"></span>
+      <span style="font-size:11px;color:var(--text-muted);min-width:70px;">{{ e.ts.strftime('%H:%M:%S') if e.ts else '' }}</span>
+      <span style="font-size:12px;font-weight:600;color:var(--text-secondary);">{{ e.action }}</span>
+      <span style="font-size:11px;color:var(--text-muted);">{{ e.user_email }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="panel">
+    <div class="panel-hdr"><div class="panel-title"><span class="panel-icon">📊</span>ACCOUNTS BY INDUSTRY</div></div>
+    {% for ind, count in by_industry.items() %}
+    <div class="pipe-row">
+      <div class="pipe-name">{{ ind }}</div>
+      <div class="pipe-track"><div class="pipe-fill" style="width:{{ [count * 20, 100]|min }}%;"></div></div>
+      <div class="pipe-val">{{ count }}</div>
+    </div>
+    {% endfor %}
+    <div class="divider" style="margin:14px 0 10px;"></div>
+    <div class="panel-hdr" style="margin-top:8px;"><div class="panel-title" style="font-size:11px;">BY PLAN</div></div>
+    {% for plan, count in by_plan.items() %}
+    <div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;">
+      <span style="text-transform:uppercase;letter-spacing:1px;color:var(--text-secondary);">{{ plan }}</span>
+      <span style="font-weight:700;">{{ count }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filterClients(q) {
+  const ind = document.getElementById('filterIndustry').value;
+  document.querySelectorAll('#clientTable tbody tr').forEach(row => {
+    const firm = (row.dataset.firm || '');
+    const ri   = (row.dataset.industry || '');
+    const show = firm.includes(q.toLowerCase()) && (!ind || ri === ind);
+    row.style.display = show ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}

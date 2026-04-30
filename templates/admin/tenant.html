@@ -1,0 +1,283 @@
+{% extends "admin/base.html" %}
+{% set active = "tenant_" + tenant.id %}
+{% block title %}{{ tenant.firm_name }}{% endblock %}
+
+{% block main %}
+<div class="page-header">
+  <div>
+    <div class="page-title">{{ icon }} {{ tenant.firm_name }} <span style="color:var(--text-muted);font-weight:400;font-size:14px;">{{ tenant.firm_sub }}</span></div>
+    <div class="page-sub">{{ tenant.industry }} · {{ tenant.plan }} plan · <span style="color:{% if tenant.status == 'active' %}var(--green){% elif tenant.status == 'suspended' %}var(--red){% else %}var(--gold){% endif %};">{{ tenant.status }}</span></div>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <a href="/{{ tenant.industry }}" class="btn-sm">Preview Dashboard</a>
+    <button class="btn-sm" style="background:rgba(209,36,47,0.15);color:var(--red);" onclick="toggleTenant()">
+      {% if tenant.status == 'active' %}Suspend{% else %}Activate{% endif %}
+    </button>
+  </div>
+</div>
+
+<div class="three-col">
+  <!-- Client Details -->
+  <div class="panel">
+    <div class="panel-hdr"><div class="panel-title"><span class="panel-icon">◎</span>ACCOUNT DETAILS</div></div>
+    <div class="detail-grid">
+      <div class="detail-row"><span class="detail-lbl">Firm Name</span>
+        <input class="detail-editable" data-field="firm_name" value="{{ tenant.firm_name }}">
+      </div>
+      <div class="detail-row"><span class="detail-lbl">Firm Suffix</span>
+        <input class="detail-editable" data-field="firm_sub" value="{{ tenant.firm_sub }}">
+      </div>
+      <div class="detail-row"><span class="detail-lbl">Industry</span>
+        <span style="font-size:12px;color:var(--text-secondary);">{{ tenant.industry }}</span>
+      </div>
+      <div class="detail-row"><span class="detail-lbl">Plan</span>
+        <select class="detail-editable" data-field="plan">
+          {% for p in ['trial','starter','growth','enterprise'] %}
+          <option value="{{ p }}" {% if p == tenant.plan %}selected{% endif %}>{{ p }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="detail-row"><span class="detail-lbl">Contact</span>
+        <input class="detail-editable" data-field="contact_name" value="{{ tenant.contact_name }}">
+      </div>
+      <div class="detail-row"><span class="detail-lbl">Email</span>
+        <input class="detail-editable" data-field="contact_email" value="{{ tenant.contact_email }}">
+      </div>
+      <div class="detail-row"><span class="detail-lbl">Phone</span>
+        <input class="detail-editable" data-field="contact_phone" value="{{ tenant.contact_phone }}">
+      </div>
+      <div class="detail-row"><span class="detail-lbl">Created</span>
+        <span style="font-size:12px;color:var(--text-muted);">{{ tenant.created_at.strftime('%B %d, %Y') if tenant.created_at else '—' }}</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:14px;">
+      <button class="btn-sm" onclick="saveDetails()">Save Changes</button>
+    </div>
+    <div style="margin-top:12px;">
+      <label style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;">Notes</label>
+      <textarea id="notesField" style="width:100%;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text-primary);font-size:12px;margin-top:6px;resize:vertical;min-height:64px;">{{ tenant.notes }}</textarea>
+      <button class="btn-sm" style="margin-top:6px;" onclick="saveField('notes', document.getElementById('notesField').value)">Save Notes</button>
+    </div>
+  </div>
+
+  <!-- Users -->
+  <div class="panel">
+    <div class="panel-hdr"><div class="panel-title"><span class="panel-icon">◈</span>USERS ({{ users|length }})</div></div>
+    {% for u in users %}
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
+      <div>
+        <div style="font-size:13px;font-weight:600;">{{ u.name or u.email }}</div>
+        <div style="font-size:11px;color:var(--text-muted);">{{ u.email }} · {{ u.role }}</div>
+        {% if u.last_login %}<div style="font-size:10px;color:var(--text-muted);">Last login: {{ u.last_login.strftime('%b %d') }}</div>{% endif %}
+      </div>
+      <button class="btn-sm" style="background:rgba(209,36,47,0.12);color:var(--red);"
+              onclick="removeUser('{{ u.id }}')">Remove</button>
+    </div>
+    {% else %}
+    <div style="color:var(--text-muted);font-size:12px;padding:16px 0;">No users yet.</div>
+    {% endfor %}
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+      <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Add User</div>
+      <input id="newUserEmail" type="email" placeholder="user@company.com" style="width:100%;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text-primary);font-size:12px;margin-bottom:6px;">
+      <input id="newUserName"  type="text"  placeholder="Full name (optional)" style="width:100%;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text-primary);font-size:12px;margin-bottom:6px;">
+      <select id="newUserRole" style="width:100%;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text-primary);font-size:12px;margin-bottom:8px;">
+        <option value="admin">Admin</option>
+        <option value="member" selected>Member</option>
+      </select>
+      <button class="btn-sm" onclick="addUser()" style="width:100%;">Add User</button>
+    </div>
+  </div>
+
+  <!-- Documents -->
+  <div class="panel">
+    <div class="panel-hdr"><div class="panel-title"><span class="panel-icon">▤</span>DOCUMENTS ({{ docs|length }})</div></div>
+    {% for d in docs[:10] %}
+    <div style="padding:7px 0;border-bottom:1px solid var(--border);">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div>
+          <div style="font-size:12px;font-weight:600;color:var(--text-primary);">{{ d.filename }}</div>
+          <div style="font-size:11px;color:var(--text-muted);">{{ d.classification }} · {{ (d.size_bytes / 1024)|round(1) }} KB</div>
+        </div>
+        <span class="badge b-{{ 'agency' if d.status == 'reviewed' else 'construction' }}" style="font-size:10px;">{{ d.status }}</span>
+      </div>
+      <div style="font-size:10px;color:var(--text-muted);margin-top:3px;">{{ d.uploaded_at.strftime('%b %d, %Y') if d.uploaded_at else '' }} · {{ d.uploaded_by }}</div>
+    </div>
+    {% else %}
+    <div style="color:var(--text-muted);font-size:12px;padding:16px 0;">No documents uploaded yet.</div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Domains -->
+<div class="panel" style="margin-bottom:20px;">
+  <div class="panel-hdr">
+    <div class="panel-title"><span class="panel-icon">◉</span>CUSTOM DOMAINS &amp; SSL</div>
+    <button class="btn-sm" onclick="showAddDomain()">+ Add Domain</button>
+  </div>
+  {% if domains %}
+  <table class="health-table">
+    <thead><tr><th>Domain</th><th>Status</th><th>SSL</th><th>Added</th><th>Actions</th></tr></thead>
+    <tbody>
+      {% for d in domains %}
+      <tr>
+        <td style="font-weight:600;">{{ d.domain }}</td>
+        <td>
+          <span class="hdot hdot-{% if d.verified %}green{% else %}amber{% endif %}"></span>
+          {{ 'Verified' if d.verified else 'Pending' }}
+        </td>
+        <td style="color:{% if d.ssl_status == 'active' %}var(--green){% else %}var(--text-muted){% endif %}">
+          {{ d.ssl_status }}
+        </td>
+        <td style="color:var(--text-muted);font-size:11px;">{{ d.added_at.strftime('%b %d') if d.added_at else '' }}</td>
+        <td>
+          <div style="display:flex;gap:6px;">
+            {% if not d.verified %}
+            <button class="btn-sm" onclick="verifyDomain('{{ d.id }}')">Verify DNS</button>
+            {% endif %}
+            <button class="btn-sm" style="color:var(--red);background:rgba(209,36,47,0.1);" onclick="removeDomain('{{ d.id }}')">Remove</button>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div style="color:var(--text-muted);font-size:12px;padding:16px 0;">No custom domains configured.</div>
+  {% endif %}
+
+  <div id="addDomainPanel" style="display:none;margin-top:16px;padding:16px;background:var(--bg-input);border-radius:8px;border:1px solid var(--border);">
+    <div style="font-size:12px;font-weight:700;margin-bottom:10px;">Register Custom Domain</div>
+    <input id="newDomain" type="text" placeholder="dashboard.yourcompany.com" style="width:100%;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--text-primary);font-size:13px;margin-bottom:10px;">
+    <button class="btn-sm" onclick="addDomain()">Register Domain</button>
+    <div id="domainInstructions" style="display:none;margin-top:14px;font-size:12px;"></div>
+  </div>
+</div>
+
+<!-- Audit trail -->
+<div class="panel">
+  <div class="panel-hdr"><div class="panel-title"><span class="panel-icon">≡</span>ACTIVITY LOG</div></div>
+  <table class="health-table">
+    <thead><tr><th>Time</th><th>User</th><th>Action</th><th>Result</th><th>Detail</th></tr></thead>
+    <tbody>
+      {% for e in audits %}
+      <tr>
+        <td style="color:var(--text-muted);font-size:11px;white-space:nowrap;">{{ e.ts.strftime('%m/%d %H:%M') if e.ts else '' }}</td>
+        <td style="font-size:12px;">{{ e.user_email }}</td>
+        <td style="font-size:12px;font-weight:600;">{{ e.action }}</td>
+        <td><span class="hdot hdot-{% if e.result == 'success' %}green{% elif e.result == 'failure' %}red{% else %}amber{% endif %}"></span> {{ e.result }}</td>
+        <td style="font-size:11px;color:var(--text-muted);">{{ e.detail[:80] if e.detail else '' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" style="color:var(--text-muted);text-align:center;padding:20px;">No activity recorded yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const TENANT_ID = '{{ tenant.id }}';
+const CSRF      = '{{ csrf_token() }}';
+
+function saveField(field, value) {
+  fetch(`/admin/client/${TENANT_ID}/update`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/x-www-form-urlencoded','X-CSRF-Token': CSRF},
+    body: `field=${encodeURIComponent(field)}&value=${encodeURIComponent(value)}`
+  }).then(r=>r.json()).then(d=>{ if(d.ok) showToast('Saved'); else showToast(d.error, true); });
+}
+
+function saveDetails() {
+  document.querySelectorAll('.detail-editable').forEach(el => {
+    saveField(el.dataset.field, el.value);
+  });
+}
+
+function toggleTenant() {
+  if (!confirm('Toggle this tenant status?')) return;
+  fetch(`/admin/client/${TENANT_ID}/toggle`, {
+    method: 'POST',
+    headers: {'X-CSRF-Token': CSRF}
+  }).then(r=>r.json()).then(d=>{ if(d.ok) location.reload(); });
+}
+
+function addUser() {
+  const email = document.getElementById('newUserEmail').value.trim();
+  const name  = document.getElementById('newUserName').value.trim();
+  const role  = document.getElementById('newUserRole').value;
+  if (!email) return;
+  fetch(`/admin/client/${TENANT_ID}/user/add`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/x-www-form-urlencoded','X-CSRF-Token': CSRF},
+    body: `email=${encodeURIComponent(email)}&name=${encodeURIComponent(name)}&role=${role}`
+  }).then(r=>r.json()).then(d=>{ if(d.ok) location.reload(); else showToast(d.error, true); });
+}
+
+function removeUser(uid) {
+  if (!confirm('Remove this user?')) return;
+  fetch(`/admin/client/${TENANT_ID}/user/${uid}/remove`, {
+    method: 'POST', headers: {'X-CSRF-Token': CSRF}
+  }).then(r=>r.json()).then(d=>{ if(d.ok) location.reload(); });
+}
+
+function showAddDomain() {
+  document.getElementById('addDomainPanel').style.display='block';
+}
+
+function addDomain() {
+  const domain = document.getElementById('newDomain').value.trim();
+  if (!domain) return;
+  fetch(`/admin/client/${TENANT_ID}/domain/add`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/x-www-form-urlencoded','X-CSRF-Token': CSRF},
+    body: `domain=${encodeURIComponent(domain)}`
+  }).then(r=>r.json()).then(d=>{
+    if (d.ok) {
+      document.getElementById('domainInstructions').style.display='block';
+      document.getElementById('domainInstructions').innerHTML = `
+        <div style="padding:12px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;">
+          <div style="font-weight:700;margin-bottom:8px;color:var(--gold);">DNS Setup Instructions</div>
+          <p style="margin:0 0 8px;">Add the following DNS records at your domain registrar:</p>
+          <div style="background:#0a0e14;padding:10px;border-radius:4px;font-family:monospace;font-size:12px;margin-bottom:8px;">
+            <div style="color:var(--text-muted);">CNAME record:</div>
+            <div><strong>${domain}</strong> → <strong>${d.cname_target}</strong></div>
+          </div>
+          <div style="background:#0a0e14;padding:10px;border-radius:4px;font-family:monospace;font-size:12px;">
+            <div style="color:var(--text-muted);">TXT record (for verification):</div>
+            <div><strong>_aios-verify.${domain}</strong> → <strong>${d.verification_token}</strong></div>
+          </div>
+          <p style="margin:8px 0 0;color:var(--text-muted);font-size:11px;">DNS changes can take 5 minutes to 24 hours to propagate. Click "Verify DNS" on the domain row once propagated.</p>
+        </div>`;
+      setTimeout(() => location.reload(), 1500);
+    } else {
+      showToast(d.error, true);
+    }
+  });
+}
+
+function verifyDomain(domainId) {
+  fetch(`/admin/client/${TENANT_ID}/domain/${domainId}/verify`, {
+    method: 'POST', headers: {'X-CSRF-Token': CSRF}
+  }).then(r=>r.json()).then(d=>{
+    if (d.verified) { showToast('Domain verified! SSL active.'); location.reload(); }
+    else showToast(d.message || 'TXT record not found yet', true);
+  });
+}
+
+function removeDomain(domainId) {
+  if (!confirm('Remove this domain?')) return;
+  fetch(`/admin/client/${TENANT_ID}/domain/${domainId}/remove`, {
+    method: 'POST', headers: {'X-CSRF-Token': CSRF}
+  }).then(r=>r.json()).then(d=>{ if(d.ok) location.reload(); });
+}
+
+function showToast(msg, err=false) {
+  const t = document.createElement('div');
+  t.textContent = msg;
+  t.style.cssText = `position:fixed;bottom:24px;right:24px;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:600;z-index:9999;color:#fff;background:${err?'var(--red)':'var(--green)'};box-shadow:0 4px 16px rgba(0,0,0,0.4);`;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3000);
+}
+</script>
+{% endblock %}

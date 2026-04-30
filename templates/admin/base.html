@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AIOS Admin — {% block title %}Management{% endblock %}</title>
+  <script>(function(){var t=localStorage.getItem('aios-theme')||'dark';document.documentElement.setAttribute('data-theme',t);})();</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/aios.css">
+  <link rel="stylesheet" href="/static/css/subpages.css">
+  <link rel="stylesheet" href="/static/css/admin.css">
+  {% block head %}{% endblock %}
+</head>
+<body>
+<div class="layout">
+
+  <header class="header">
+    <div class="header-brand">A<span style="color:var(--gold)">IOS</span><span class="sub" style="color:var(--red);font-size:9px;letter-spacing:2px;margin-left:6px;">ADMIN</span></div>
+    <div class="header-sep"></div>
+    <div class="header-badge" style="background:rgba(209,36,47,0.12);color:var(--red);">⚙ Management Console</div>
+    <div class="header-badge"><span class="dot"></span>{{ admin_email }}</div>
+    <div class="header-spacer"></div>
+    <div class="clock" id="clock"></div>
+    <button class="theme-btn" id="theme-btn" onclick="toggleTheme()">☀ Light</button>
+    <div class="header-sep"></div>
+    <a href="/" style="font-size:11px;color:var(--text-muted);padding:0 6px;">← Dashboard</a>
+    <a href="/logout" style="font-size:11px;color:var(--text-muted);padding:0 6px;">Sign Out</a>
+  </header>
+
+  <aside class="sidebar">
+    <nav class="sidebar-nav">
+      <div class="nav-section">
+        <div class="nav-section-title">MANAGEMENT</div>
+        <a href="/admin/" class="nav-item{% if active == 'overview' %} active{% endif %}">
+          <span class="nav-icon">◎</span><span>Overview</span>
+        </a>
+        <a href="/onboard" class="nav-item{% if active == 'new_client' %} active{% endif %}">
+          <span class="nav-icon">+</span><span>New Client Account</span>
+        </a>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-title">CLIENTS</div>
+        {% for t in all_tenants %}
+        <a href="/admin/client/{{ t.id }}" class="nav-item{% if active == 'tenant_' + t.id %} active{% endif %}" style="padding-left:20px;">
+          <span class="nav-icon" style="font-size:11px;">{{ industry_icons.get(t.industry, '▤') }}</span>
+          <span style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px;">{{ t.firm_name }}</span>
+          <span class="nav-badge" style="background:{% if t.status == 'active' %}rgba(63,185,80,0.2){% elif t.status == 'suspended' %}rgba(209,36,47,0.2){% else %}rgba(227,179,65,0.2){% endif %};color:{% if t.status == 'active' %}var(--green){% elif t.status == 'suspended' %}var(--red){% else %}var(--gold){% endif %};">{{ t.status[:3].upper() }}</span>
+        </a>
+        {% endfor %}
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-title">SECURITY</div>
+        <a href="/admin/audit" class="nav-item{% if active == 'audit' %} active{% endif %}">
+          <span class="nav-icon">≡</span><span>Audit Log</span>
+        </a>
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-footer-label">Powered by</div>
+      <div class="sidebar-footer-brand">AI Evolution Services</div>
+    </div>
+  </aside>
+
+  <main class="main">
+    {% block main %}{% endblock %}
+  </main>
+
+</div>
+<script src="/static/js/aios.js"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

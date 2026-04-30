@@ -1,17 +1,45 @@
 import os, secrets
 import time as _time
 from datetime import datetime
-from flask import Flask, render_template, request, session, redirect, url_for
+from flask import Flask, render_template, request, session, redirect, url_for, jsonify
 
 try:
     from dotenv import load_dotenv; load_dotenv()
 except ImportError:
     pass
 
-from auth import request_otp, verify_otp, require_auth, mask_email
+from auth import request_otp, verify_otp, require_auth, require_admin, mask_email
+from models import init_db, Tenant, TenantUser, Document, Domain, db
+from security import init_security, audit
+from onboarding import onboard_bp
+from admin_bp import admin_bp
+import werkzeug.utils as wz
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY') or secrets.token_hex(32)
+app.config['MAX_CONTENT_LENGTH'] = 25 * 1024 * 1024  # 25 MB upload limit
+
+# ── Initialise DB + security middleware ───────────────────────────────────────
+with app.app_context():
+    try:
+        init_db()
+    except Exception as _e:
+        import logging; logging.getLogger(__name__).warning('DB init: %s', _e)
+
+init_security(app)
+app.register_blueprint(onboard_bp)
+app.register_blueprint(admin_bp)
+
+# ── Custom-domain tenant routing ──────────────────────────────────────────────
+@app.before_request
+def _resolve_tenant_domain():
+    """Map incoming custom domains to the correct tenant context."""
+    host = request.host.split(':')[0].lower()
+    if host in ('localhost', '127.0.0.1') or host.endswith('.railway.app'):
+        return  # internal / hosting domain — no tenant mapping needed
+    dom = Domain.query.filter_by(domain=host, verified=True).first()
+    if dom:
+        session['_domain_tenant'] = dom.tenant_id
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 def _greeting():
@@ -51,6 +79,8 @@ def _nav(industry, active_key, pipeline_label, tools):
             _item('▤', 'Data Import',    f'/{industry}/import',    'import'),
             _item('◷', 'Integrations',   f'/{industry}/integrations','integrations'),
             _item('◈', 'Team & Roles',   f'/{industry}/team',      'team'),
+            _item('◫', 'Documents',      f'/{industry}/documents', 'documents'),
+            _item('◉', 'Domain & SSL',   f'/{industry}/domain',    'domain'),
         ]},
     ]
 
@@ -746,10 +776,28 @@ def otp_page():
         ok, msg = verify_otp(email, submitted)
         if ok:
             session.pop('aios_pending_email', None)
-            session['aios_auth']     = True
-            session['aios_email']    = email
-            session['aios_login_ts'] = _time.time()
-            return redirect(url_for('index'))
+            now = _time.time()
+            if email in __import__('auth').ALLOWED_EMAILS:
+                # Super-admin login
+                session['aios_auth']     = True
+                session['aios_email']    = email
+                session['aios_login_ts'] = now
+                audit('login', '/otp', 'success', f'admin={email}')
+                return redirect(url_for('index'))
+            else:
+                # Tenant user login
+                user = TenantUser.query.filter_by(email=email, active=True).first()
+                if user:
+                    user.last_login = datetime.utcnow()
+                    db.commit()
+                    session['tenant_auth']     = True
+                    session['tenant_email']    = email
+                    session['tenant_id']       = user.tenant_id
+                    session['tenant_role']     = user.role
+                    session['tenant_industry'] = user.tenant.industry
+                    session['tenant_login_ts'] = now
+                    audit('login', '/otp', 'success', f'tenant_user={email}')
+                    return redirect(url_for('dashboard', industry=user.tenant.industry))
         error = msg
     return render_template('otp.html', email=email, masked_email=mask_email(email), error=error)
 
@@ -858,6 +906,147 @@ def tool_page(industry, tool_key):
     d = {**cfg, 'industry': industry,
          'nav': _nav(industry, active, cfg['pipeline_label'], cfg['tools'])}
     return render_template('pages/tool_page.html', data=d, tool=tool, **_ctx(d))
+
+# ── Documents ─────────────────────────────────────────────────────────────────
+@app.route('/<industry>/documents')
+@require_auth
+def documents(industry):
+    tenant_id = session.get('tenant_id')
+    if tenant_id:
+        docs = (Document.query.filter_by(tenant_id=tenant_id)
+                .order_by(Document.uploaded_at.desc()).all())
+    else:
+        docs = []
+    return _page(industry, 'documents', 'pages/documents.html', docs=docs)
+
+
+@app.route('/<industry>/documents/upload', methods=['POST'])
+@require_auth
+def documents_upload(industry):
+    from document_processor import process_upload, allowed_file, MAX_UPLOAD_BYTES
+    import werkzeug.utils as wz
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        return jsonify({'ok': False, 'error': 'No tenant context. Super-admins upload via /admin.'}), 400
+
+    f = request.files.get('file')
+    if not f or not f.filename:
+        return jsonify({'ok': False, 'error': 'No file selected'}), 400
+
+    filename = wz.secure_filename(f.filename)
+    if not allowed_file(filename):
+        return jsonify({'ok': False, 'error': 'File type not allowed'}), 400
+
+    file_bytes = f.read()
+    if len(file_bytes) > MAX_UPLOAD_BYTES:
+        return jsonify({'ok': False, 'error': 'File exceeds 25 MB limit'}), 400
+
+    email  = session.get('tenant_email', '')
+    result = process_upload(file_bytes, filename, tenant_id, industry, email)
+
+    doc = Document(
+        tenant_id      = tenant_id,
+        filename       = filename,
+        content_type   = result['content_type'],
+        encrypted_blob = result['encrypted_blob'],
+        size_bytes     = result['size_bytes'],
+        classification = result['classification'],
+        summary_enc    = result['summary_enc'],
+        uploaded_by    = email,
+        status         = 'pending',
+    )
+    db.add(doc)
+    db.commit()
+    audit('document_upload', f'doc:{doc.id}', 'success',
+          f'file={filename} class={result["classification"]}')
+
+    return jsonify({
+        'ok':            True,
+        'doc_id':        doc.id,
+        'classification':result['classification'],
+        'confidence':    result['confidence'],
+        'summary':       result['summary'],
+    })
+
+
+@app.route('/<industry>/documents/<doc_id>/assign', methods=['POST'])
+@require_auth
+def document_assign(industry, doc_id):
+    tenant_id = session.get('tenant_id')
+    query = Document.query.filter_by(id=doc_id)
+    if tenant_id:
+        query = query.filter_by(tenant_id=tenant_id)
+    doc = query.first_or_404()
+    doc.assigned_to = request.form.get('assigned_to', '').strip()[:200]
+    doc.status      = 'reviewed'
+    db.commit()
+    return jsonify({'ok': True})
+
+
+# ── Domain management (per-industry) ─────────────────────────────────────────
+@app.route('/<industry>/domain')
+@require_auth
+def domain_page(industry):
+    tenant_id = session.get('tenant_id')
+    tenant    = Tenant.query.get(tenant_id) if tenant_id else None
+    domains   = Domain.query.filter_by(tenant_id=tenant_id).all() if tenant_id else []
+    cname_target = os.getenv('APP_HOSTNAME', 'aios-platform.railway.app')
+    return _page(industry, 'domain', 'pages/domains.html',
+                 tenant=tenant, domains=domains, cname_target=cname_target)
+
+
+@app.route('/<industry>/domain/add', methods=['POST'])
+@require_auth
+def domain_add(industry):
+    from security import validate_domain
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        return jsonify({'ok': False, 'error': 'No tenant context'}), 400
+
+    domain_str = request.form.get('domain', '').strip().lower().lstrip('www.')
+    if not validate_domain(domain_str):
+        return jsonify({'ok': False, 'error': 'Invalid domain name'}), 400
+    if Domain.query.filter_by(domain=domain_str).first():
+        return jsonify({'ok': False, 'error': 'Domain already registered'}), 400
+
+    cname_target = os.getenv('APP_HOSTNAME', 'aios-platform.railway.app')
+    dom = Domain(
+        tenant_id          = tenant_id,
+        domain             = domain_str,
+        verification_token = secrets.token_hex(24),
+        cname_target       = cname_target,
+    )
+    db.add(dom)
+    db.commit()
+    audit('domain_added', f'tenant:{tenant_id}', 'success', f'domain={domain_str}')
+    return jsonify({
+        'ok':                True,
+        'domain_id':         dom.id,
+        'verification_token': dom.verification_token,
+        'cname_target':      cname_target,
+    })
+
+
+@app.route('/<industry>/domain/<domain_id>/verify', methods=['POST'])
+@require_auth
+def domain_verify(industry, domain_id):
+    from admin_bp import _check_dns_txt
+    tenant_id = session.get('tenant_id')
+    dom = Domain.query.filter_by(id=domain_id, tenant_id=tenant_id).first_or_404()
+    verified = _check_dns_txt(dom.domain, dom.verification_token)
+    if verified:
+        dom.verified    = True
+        dom.ssl_status  = 'active'
+        dom.verified_at = datetime.utcnow()
+        db.commit()
+    return jsonify({'ok': True, 'verified': verified})
+
+
+# ── Health check ──────────────────────────────────────────────────────────────
+@app.route('/health')
+def health():
+    return jsonify({'status': 'ok', 'version': 'v3.0.0'})
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

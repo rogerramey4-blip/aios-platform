@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% block main %}
+
+<div class="page-header">
+  <div>
+    <div class="page-title">Documents</div>
+    <div class="page-sub">Upload, parse, and classify business documents — encrypted at rest</div>
+  </div>
+  {% if docs is defined %}
+  <div style="font-size:12px;color:var(--text-muted);">{{ docs|length }} document(s) stored</div>
+  {% endif %}
+</div>
+
+{% if not session.get('tenant_id') and not session.get('aios_auth') %}
+<div style="padding:32px;text-align:center;color:var(--text-muted);">Documents require an active tenant account.</div>
+{% else %}
+
+<!-- Upload zone -->
+<div class="panel" style="margin-bottom:20px;">
+  <div class="panel-hdr"><div class="panel-title"><span class="panel-icon">▤</span>UPLOAD DOCUMENT</div></div>
+
+  <div id="dropZone" style="border:2px dashed var(--border);border-radius:10px;padding:40px;text-align:center;cursor:pointer;transition:border-color 0.2s;"
+       onclick="document.getElementById('fileInput').click()"
+       ondragover="event.preventDefault();this.style.borderColor='var(--gold)'"
+       ondragleave="this.style.borderColor='var(--border)'"
+       ondrop="handleDrop(event)">
+    <div style="font-size:32px;margin-bottom:8px;">▤</div>
+    <div style="font-size:14px;font-weight:600;margin-bottom:4px;">Drop files here or click to browse</div>
+    <div style="font-size:12px;color:var(--text-muted);">PDF, DOCX, TXT, CSV — up to 25 MB</div>
+    <input id="fileInput" type="file" accept=".pdf,.docx,.doc,.txt,.csv,.xlsx,.eml" style="display:none" onchange="uploadFile(this.files[0])">
+  </div>
+
+  <div id="uploadProgress" style="display:none;margin-top:16px;">
+    <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--bg-input);border-radius:8px;">
+      <div style="width:18px;height:18px;border:2px solid var(--gold);border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;flex-shrink:0;"></div>
+      <div id="uploadMsg" style="font-size:13px;color:var(--text-secondary);">Uploading…</div>
+    </div>
+  </div>
+
+  <div id="uploadResult" style="display:none;margin-top:14px;"></div>
+</div>
+
+<!-- Document list -->
+<div class="panel">
+  <div class="panel-hdr"><div class="panel-title"><span class="panel-icon">≡</span>DOCUMENT VAULT</div></div>
+  {% if docs %}
+  <table class="health-table">
+    <thead>
+      <tr>
+        <th>File</th>
+        <th>Classification</th>
+        <th>Size</th>
+        <th>Uploaded</th>
+        <th>By</th>
+        <th>Status</th>
+        <th>Assign</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for d in docs %}
+      <tr id="doc-{{ d.id }}">
+        <td>
+          <div style="font-weight:600;font-size:13px;">{{ d.filename }}</div>
+          <div style="font-size:10px;color:var(--text-muted);">{{ d.content_type }}</div>
+        </td>
+        <td>
+          <span class="badge b-{{ data.industry }}" style="font-size:10px;">{{ d.classification }}</span>
+        </td>
+        <td style="font-size:12px;color:var(--text-muted);">{{ (d.size_bytes / 1024)|round(1) }} KB</td>
+        <td style="font-size:11px;color:var(--text-muted);">{{ d.uploaded_at.strftime('%b %d, %Y') if d.uploaded_at else '—' }}</td>
+        <td style="font-size:11px;color:var(--text-muted);">{{ d.uploaded_by }}</td>
+        <td>
+          <span class="hdot hdot-{% if d.status == 'reviewed' %}green{% elif d.status == 'archived' %}amber{% else %}blue{% endif %}"></span>
+          <span style="font-size:11px;">{{ d.status }}</span>
+        </td>
+        <td>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <input type="text" value="{{ d.assigned_to or '' }}" placeholder="team / email"
+                   id="assign-{{ d.id }}"
+                   style="background:var(--bg-input);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-size:11px;color:var(--text-primary);width:120px;">
+            <button class="btn-sm" style="font-size:10px;" onclick="assignDoc('{{ d.id }}')">Save</button>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div style="text-align:center;padding:48px 0;color:var(--text-muted);">
+    <div style="font-size:32px;margin-bottom:8px;">▤</div>
+    <div style="font-size:14px;margin-bottom:4px;">No documents yet</div>
+    <div style="font-size:12px;">Upload your first document above — it will be parsed, classified, and encrypted automatically.</div>
+  </div>
+  {% endif %}
+</div>
+
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+const CSRF     = '{{ csrf_token() }}';
+const INDUSTRY = '{{ data.industry }}';
+
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('dropZone').style.borderColor = 'var(--border)';
+  const file = e.dataTransfer.files[0];
+  if (file) uploadFile(file);
+}
+
+function uploadFile(file) {
+  if (!file) return;
+  const prog = document.getElementById('uploadProgress');
+  const msg  = document.getElementById('uploadMsg');
+  const res  = document.getElementById('uploadResult');
+  prog.style.display = 'block';
+  res.style.display  = 'none';
+  msg.textContent    = `Uploading ${file.name}…`;
+
+  const fd = new FormData();
+  fd.append('file', file);
+
+  fetch(`/${INDUSTRY}/documents/upload`, {
+    method: 'POST',
+    headers: {'X-CSRF-Token': CSRF},
+    body: fd
+  })
+  .then(r => r.json())
+  .then(d => {
+    prog.style.display = 'none';
+    res.style.display  = 'block';
+    if (d.ok) {
+      res.innerHTML = `
+        <div style="padding:16px;background:rgba(63,185,80,0.08);border:1px solid var(--green);border-radius:8px;">
+          <div style="font-weight:700;color:var(--green);margin-bottom:6px;">Document processed successfully</div>
+          <div style="font-size:13px;">Classification: <strong>${d.classification}</strong> (${Math.round(d.confidence*100)}% confidence)</div>
+          ${d.summary ? `<div style="font-size:12px;color:var(--text-muted);margin-top:6px;">${d.summary}</div>` : ''}
+          <div style="margin-top:10px;"><button class="btn-sm" onclick="location.reload()">Refresh List</button></div>
+        </div>`;
+    } else {
+      res.innerHTML = `<div style="padding:12px;background:rgba(209,36,47,0.1);border:1px solid var(--red);border-radius:6px;color:var(--red);">${d.error}</div>`;
+    }
+  })
+  .catch(() => {
+    prog.style.display = 'none';
+    res.style.display  = 'block';
+    res.innerHTML = `<div style="color:var(--red);">Upload failed — please try again.</div>`;
+  });
+}
+
+function assignDoc(docId) {
+  const val = document.getElementById('assign-' + docId).value.trim();
+  const params = new URLSearchParams({ assigned_to: val, _csrf_token: CSRF });
+  fetch(`/${INDUSTRY}/documents/${docId}/assign`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/x-www-form-urlencoded','X-CSRF-Token': CSRF},
+    body: params.toString()
+  }).then(r=>r.json()).then(d=>{
+    if (d.ok) {
+      const row = document.getElementById('doc-' + docId);
+      const statusCell = row.querySelector('td:nth-child(6)');
+      if (statusCell) statusCell.innerHTML = '<span class="hdot hdot-green"></span><span style="font-size:11px;">reviewed</span>';
+    }
+  });
+}
+</script>
+<style>
+@keyframes spin { to { transform:rotate(360deg); } }
+</style>
+{% endblock %}

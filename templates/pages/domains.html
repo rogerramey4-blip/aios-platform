@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% block main %}
+
+<div class="page-header">
+  <div>
+    <div class="page-title">Domain &amp; SSL</div>
+    <div class="page-sub">Connect a custom domain — your AIOS dashboard on your own URL with full HTTPS</div>
+  </div>
+</div>
+
+<div class="two-col">
+
+  <!-- Current domains -->
+  <div class="panel">
+    <div class="panel-hdr"><div class="panel-title"><span class="panel-icon">◉</span>REGISTERED DOMAINS</div></div>
+
+    {% if domains %}
+    {% for d in domains %}
+    <div style="padding:14px 0;border-bottom:1px solid var(--border);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <div style="font-weight:700;font-size:14px;">{{ d.domain }}</div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <span style="padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;letter-spacing:1px;
+            background:{% if d.verified %}rgba(63,185,80,0.12){% else %}rgba(227,179,65,0.12){% endif %};
+            color:{% if d.verified %}var(--green){% else %}var(--gold){% endif %};">
+            {% if d.verified %}VERIFIED{% else %}PENDING{% endif %}
+          </span>
+          <span style="padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;letter-spacing:1px;
+            background:{% if d.ssl_status == 'active' %}rgba(63,185,80,0.12){% else %}rgba(var(--text-muted-rgb),0.08){% endif %};
+            color:{% if d.ssl_status == 'active' %}var(--green){% else %}var(--text-muted){% endif %};">
+            SSL {{ d.ssl_status|upper }}
+          </span>
+        </div>
+      </div>
+      {% if not d.verified %}
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">
+        Add this TXT record to your DNS: <code style="background:var(--bg-input);padding:2px 6px;border-radius:3px;font-size:11px;">_aios-verify.{{ d.domain }}</code> → <code style="background:var(--bg-input);padding:2px 6px;border-radius:3px;font-size:11px;">{{ d.verification_token }}</code>
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px;">
+        Also add CNAME: <code style="background:var(--bg-input);padding:2px 6px;border-radius:3px;font-size:11px;">{{ d.domain }}</code> → <code style="background:var(--bg-input);padding:2px 6px;border-radius:3px;font-size:11px;">{{ cname_target }}</code>
+      </div>
+      <button class="btn-sm" onclick="verifyDomain('{{ d.id }}')">Check DNS Now</button>
+      {% else %}
+      <div style="font-size:11px;color:var(--text-muted);">
+        Verified {{ d.verified_at.strftime('%b %d, %Y') if d.verified_at else '' }} · CNAME → {{ cname_target }}
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+    {% else %}
+    <div style="text-align:center;padding:32px 0;color:var(--text-muted);">
+      <div style="font-size:24px;margin-bottom:8px;">◉</div>
+      <div style="font-size:13px;">No custom domains yet</div>
+      <div style="font-size:12px;margin-top:4px;">Add one to serve your AIOS dashboard at your own domain.</div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Add new domain + instructions -->
+  <div class="panel">
+    <div class="panel-hdr"><div class="panel-title"><span class="panel-icon">+</span>ADD CUSTOM DOMAIN</div></div>
+
+    <div style="margin-bottom:20px;">
+      <label style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:8px;">Domain Name</label>
+      <input id="newDomain" type="text" placeholder="dashboard.yourcompany.com"
+             style="width:100%;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:10px 14px;color:var(--text-primary);font-size:14px;margin-bottom:10px;">
+      <button class="btn-primary" style="width:100%;" onclick="addDomain()">Register Domain</button>
+    </div>
+
+    <div id="domainResult" style="display:none;"></div>
+
+    <div class="divider" style="margin:20px 0;"></div>
+
+    <div style="font-size:12px;color:var(--text-secondary);">
+      <div style="font-weight:700;margin-bottom:10px;color:var(--text-primary);">How it works</div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="display:flex;gap:10px;align-items:flex-start;">
+          <span style="background:var(--gold);color:#000;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0;">1</span>
+          <span>Register your domain above — we generate your DNS records</span>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;">
+          <span style="background:var(--gold);color:#000;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0;">2</span>
+          <span>Add a CNAME record at your registrar (Cloudflare, GoDaddy, etc.) pointing to our platform URL</span>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;">
+          <span style="background:var(--gold);color:#000;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0;">3</span>
+          <span>Add the TXT verification record to prove domain ownership</span>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;">
+          <span style="background:var(--green);color:#000;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0;">4</span>
+          <span>Click "Verify DNS" — your dashboard is live at your custom domain with full HTTPS/SSL</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider" style="margin:20px 0;"></div>
+
+    <div style="padding:12px;background:rgba(63,185,80,0.06);border:1px solid rgba(63,185,80,0.2);border-radius:8px;font-size:11px;color:var(--text-secondary);">
+      <div style="font-weight:700;color:var(--green);margin-bottom:4px;">Security guarantees</div>
+      <ul style="margin:0;padding-left:16px;line-height:1.8;">
+        <li>TLS 1.3 enforced — all traffic encrypted in flight</li>
+        <li>HSTS preloading — browsers always use HTTPS</li>
+        <li>All data encrypted at rest with AES-256</li>
+        <li>Tenant data fully isolated — no cross-tenant access</li>
+      </ul>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const CSRF     = '{{ csrf_token() }}';
+const INDUSTRY = '{{ data.industry }}';
+
+function addDomain() {
+  const domain = document.getElementById('newDomain').value.trim().replace(/^www\./, '');
+  if (!domain) return;
+  const res = document.getElementById('domainResult');
+
+  fetch(`/${INDUSTRY}/domain/add`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/x-www-form-urlencoded','X-CSRF-Token': CSRF},
+    body: `domain=${encodeURIComponent(domain)}&_csrf_token=${encodeURIComponent(CSRF)}`
+  })
+  .then(r=>r.json())
+  .then(d => {
+    res.style.display = 'block';
+    if (d.ok) {
+      res.innerHTML = `
+        <div style="padding:14px;background:rgba(63,185,80,0.08);border:1px solid var(--green);border-radius:8px;font-size:12px;">
+          <div style="font-weight:700;color:var(--green);margin-bottom:8px;">Domain registered!</div>
+          <div style="margin-bottom:6px;">Add these DNS records:</div>
+          <div style="background:#0a0e14;padding:10px;border-radius:4px;font-family:monospace;font-size:11px;margin-bottom:8px;">
+            CNAME: <strong>${domain}</strong> → <strong>${d.cname_target}</strong>
+          </div>
+          <div style="background:#0a0e14;padding:10px;border-radius:4px;font-family:monospace;font-size:11px;">
+            TXT: <strong>_aios-verify.${domain}</strong> → <strong>${d.verification_token}</strong>
+          </div>
+          <div style="margin-top:10px;color:var(--text-muted);">DNS can take up to 24h to propagate. Refresh the page and click "Check DNS Now" after adding records.</div>
+        </div>`;
+      setTimeout(() => location.reload(), 2000);
+    } else {
+      res.innerHTML = `<div style="padding:10px;background:rgba(209,36,47,0.1);border:1px solid var(--red);border-radius:6px;color:var(--red);font-size:12px;">${d.error}</div>`;
+    }
+  });
+}
+
+function verifyDomain(domainId) {
+  fetch(`/${INDUSTRY}/domain/${domainId}/verify`, {
+    method: 'POST',
+    headers: {'X-CSRF-Token': CSRF}
+  })
+  .then(r=>r.json())
+  .then(d => {
+    if (d.verified) {
+      alert('Domain verified! SSL is now active.');
+      location.reload();
+    } else {
+      alert(d.message || 'TXT record not found yet. DNS changes can take up to 24 hours to propagate.');
+    }
+  });
+}
+</script>
+{% endblock %}
