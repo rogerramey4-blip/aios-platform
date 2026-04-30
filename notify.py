@@ -21,75 +21,84 @@ def _cfg(key: str, default: str = '') -> str:
 
 
 def send(to: str | list, subject: str, html: str, text: str = ''):
-    """Send an email. Uses Resend API if configured, otherwise SMTP."""
+    """
+    Send an email with cascading fallback:
+      1. Resend API  (if RESEND_API_KEY set)
+      2. SMTP        (if SMTP_HOST + SMTP_PASS set)
+      3. Console     (always — guarantees OTP codes are never silently lost)
+    """
     recipients = [to] if isinstance(to, str) else to
 
-    # ── Resend API (preferred — HTTPS, no port issues) ────────────────────────
+    # ── 1. Resend API ─────────────────────────────────────────────────────────
     resend_key = _cfg('RESEND_API_KEY')
     if resend_key:
-        _send_resend(recipients, subject, html, text, resend_key)
-        return
+        ok, err = _send_resend(recipients, subject, html, text, resend_key)
+        if ok:
+            return
+        log.warning('[AIOS Notify] Resend failed (%s) — trying SMTP fallback', err)
 
-    # ── SMTP fallback ─────────────────────────────────────────────────────────
+    # ── 2. SMTP fallback ──────────────────────────────────────────────────────
     host     = _cfg('SMTP_HOST')
     port     = int(_cfg('SMTP_PORT') or 587)
     user     = _cfg('SMTP_USER')
     password = _cfg('SMTP_PASS')
-    from_addr = user or 'aios@aievolutionservices.com'
 
-    if not host or not user or not password:
-        log.warning('[AIOS Notify] No email provider configured — printing to console')
-        for r in recipients:
-            print(f'\n  [AIOS Notify] TO: {r} | {subject}')
-        return
+    if host and user and password:
+        from_addr = user
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From']    = f'AIOS <{from_addr}>'
+        msg['To']      = ', '.join(recipients)
+        if text:
+            msg.attach(MIMEText(text, 'plain'))
+        msg.attach(MIMEText(html, 'html'))
+        try:
+            if port == 465:
+                with smtplib.SMTP_SSL(host, port, timeout=15) as srv:
+                    srv.login(user, password)
+                    srv.sendmail(from_addr, recipients, msg.as_string())
+            else:
+                with smtplib.SMTP(host, port, timeout=15) as srv:
+                    srv.ehlo(); srv.starttls(); srv.login(user, password)
+                    srv.sendmail(from_addr, recipients, msg.as_string())
+            log.info('[AIOS Notify] SMTP sent "%s" to %s', subject, recipients)
+            return
+        except Exception as exc:
+            log.warning('[AIOS Notify] SMTP failed (%s) — falling back to console', exc)
 
-    msg = MIMEMultipart('alternative')
-    msg['Subject'] = subject
-    msg['From']    = f'AIOS <{from_addr}>'
-    msg['To']      = ', '.join(recipients)
-    if text:
-        msg.attach(MIMEText(text, 'plain'))
-    msg.attach(MIMEText(html, 'html'))
-
-    try:
-        if port == 465:
-            with smtplib.SMTP_SSL(host, port, timeout=15) as srv:
-                srv.login(user, password)
-                srv.sendmail(from_addr, recipients, msg.as_string())
-        else:
-            with smtplib.SMTP(host, port, timeout=15) as srv:
-                srv.ehlo(); srv.starttls(); srv.login(user, password)
-                srv.sendmail(from_addr, recipients, msg.as_string())
-        log.info('[AIOS Notify] SMTP sent "%s" to %s', subject, recipients)
-    except Exception as exc:
-        log.error('[AIOS Notify] SMTP error: %s', exc)
+    # ── 3. Console fallback (always reaches here if both above fail) ──────────
+    print('\n' + '='*54)
+    print(f'  AIOS EMAIL — TO: {", ".join(recipients)}')
+    print(f'  SUBJECT: {subject}')
+    # Extract plain-text OTP code from HTML if present
+    import re as _re
+    codes = _re.findall(r'<div[^>]*font-size:44px[^>]*>(\d{6})<', html)
+    if codes:
+        print(f'  CODE: {codes[0]}')
+    print('='*54 + '\n')
+    log.warning('[AIOS Notify] Console fallback used for %s — check logs for code', recipients)
 
 
-def _send_resend(recipients: list, subject: str, html: str, text: str, api_key: str):
-    """Send via Resend HTTPS API."""
+def _send_resend(recipients: list, subject: str, html: str, text: str, api_key: str) -> tuple:
+    """Send via Resend HTTPS API. Returns (success: bool, error: str)."""
     try:
         import resend as _resend
         _resend.api_key = api_key
-        # Use verified custom domain address if RESEND_FROM is explicitly set,
-        # otherwise use Resend's shared sending address (works with no domain setup).
         custom_from = os.getenv('RESEND_FROM', '').strip()
         if custom_from and '@' in custom_from:
             from_addr = custom_from if '<' in custom_from else f'AIOS <{custom_from}>'
         else:
             from_addr = 'AIOS <onboarding@resend.dev>'
         log.info('[AIOS Notify] Resend from=%s to=%s', from_addr, recipients)
-        params = {
-            'from':    from_addr,
-            'to':      recipients,
-            'subject': subject,
-            'html':    html,
-        }
+        params = {'from': from_addr, 'to': recipients, 'subject': subject, 'html': html}
         if text:
             params['text'] = text
         _resend.Emails.send(params)
-        log.info('[AIOS Notify] Resend sent "%s" to %s', subject, recipients)
+        log.info('[AIOS Notify] Resend delivered "%s" to %s', subject, recipients)
+        return True, ''
     except Exception as exc:
         log.error('[AIOS Notify] Resend error: %s', exc)
+        return False, str(exc)
 
 
 _CONFLICT_HTML = """<!DOCTYPE html>
