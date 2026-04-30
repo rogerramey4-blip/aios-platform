@@ -1,0 +1,95 @@
+{% extends 'admin/base.html' %}
+{% block title %}SMTP Settings{% endblock %}
+
+{% block main %}
+<div class="page-header">
+  <h1 class="page-title">SMTP Email Settings</h1>
+  <div class="page-sub">Outbound email credentials — stored encrypted in the database</div>
+</div>
+
+<div style="max-width:600px;">
+
+  {% if saved_msg %}
+  <div style="background:rgba(63,185,80,.12);border:1px solid rgba(63,185,80,.3);border-radius:8px;padding:12px 16px;margin-bottom:20px;font-size:13px;color:var(--green);font-weight:600;">
+    ✓ {{ saved_msg }}
+  </div>
+  {% endif %}
+
+  {% if error %}
+  <div style="background:rgba(248,81,73,.12);border:1px solid rgba(248,81,73,.35);border-radius:8px;padding:12px 16px;margin-bottom:20px;font-size:13px;color:var(--red);">
+    {{ error }}
+  </div>
+  {% endif %}
+
+  <!-- Status card -->
+  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:24px;">
+    <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:14px;">Current Configuration</div>
+    <div style="display:grid;grid-template-columns:120px 1fr;gap:8px 16px;font-size:13px;">
+      <span style="color:var(--text-muted);font-weight:600;">Host</span>
+      <span style="color:var(--text-primary);">{{ smtp_host or '—' }}</span>
+      <span style="color:var(--text-muted);font-weight:600;">Port</span>
+      <span style="color:var(--text-primary);">{{ smtp_port or '587' }}</span>
+      <span style="color:var(--text-muted);font-weight:600;">Username</span>
+      <span style="color:var(--text-primary);">{{ smtp_user or '—' }}</span>
+      <span style="color:var(--text-muted);font-weight:600;">Password</span>
+      <span style="color:{% if smtp_pass_set %}var(--green){% else %}var(--text-muted){% endif %};">
+        {% if smtp_pass_set %}●●●●●●●● (stored){% else %}Not set{% endif %}
+      </span>
+    </div>
+  </div>
+
+  <!-- Edit form -->
+  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:24px;">
+    <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:18px;">Update Credentials</div>
+    <form method="POST" action="/admin/settings/smtp">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+        <div>
+          <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text-secondary);margin-bottom:6px;">SMTP Host</label>
+          <input type="text" name="smtp_host" value="{{ smtp_host }}" placeholder="smtp.gmail.com"
+                 style="width:100%;background:var(--bg-tertiary);border:1px solid var(--border);border-radius:6px;padding:10px 12px;font-size:13px;color:var(--text-primary);font-family:inherit;outline:none;box-sizing:border-box;">
+        </div>
+        <div>
+          <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text-secondary);margin-bottom:6px;">Port</label>
+          <input type="text" name="smtp_port" value="{{ smtp_port }}" placeholder="587"
+                 style="width:100%;background:var(--bg-tertiary);border:1px solid var(--border);border-radius:6px;padding:10px 12px;font-size:13px;color:var(--text-primary);font-family:inherit;outline:none;box-sizing:border-box;">
+        </div>
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text-secondary);margin-bottom:6px;">SMTP Username / From Address</label>
+        <input type="email" name="smtp_user" value="{{ smtp_user }}" placeholder="you@yourdomain.com"
+               style="width:100%;background:var(--bg-tertiary);border:1px solid var(--border);border-radius:6px;padding:10px 12px;font-size:13px;color:var(--text-primary);font-family:inherit;outline:none;box-sizing:border-box;">
+      </div>
+
+      <div style="margin-bottom:20px;">
+        <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text-secondary);margin-bottom:6px;">
+          Password / App Password
+          <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-muted);"> — leave blank to keep current</span>
+        </label>
+        <input type="password" name="smtp_pass" placeholder="Leave blank to keep existing password"
+               autocomplete="new-password"
+               style="width:100%;background:var(--bg-tertiary);border:1px solid var(--border);border-radius:6px;padding:10px 12px;font-size:13px;color:var(--text-primary);font-family:inherit;outline:none;box-sizing:border-box;">
+      </div>
+
+      <button type="submit"
+              style="background:var(--gold);color:#0d1117;border:none;border-radius:8px;padding:11px 28px;font-size:13px;font-weight:800;cursor:pointer;">
+        Save &amp; Encrypt →
+      </button>
+    </form>
+  </div>
+
+  <!-- Info card -->
+  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:20px 24px;">
+    <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:12px;">Security Notes</div>
+    <ul style="font-size:12px;color:var(--text-secondary);line-height:1.8;margin:0;padding-left:18px;">
+      <li>Credentials are encrypted with AES-128-CBC (Fernet) before being stored in the database.</li>
+      <li>The encryption key is derived from your <code style="color:var(--gold);">SECRET_KEY</code> / <code style="color:var(--gold);">ENCRYPTION_KEY</code> env var via HKDF-SHA256.</li>
+      <li>For Gmail, use a 16-character <strong>App Password</strong> (not your account password). Enable 2FA on your Google account first, then generate an App Password under Security → App Passwords.</li>
+      <li>Env var fallback: if no DB credentials are set, <code style="color:var(--gold);">SMTP_*</code> env vars are used.</li>
+    </ul>
+  </div>
+
+</div>
+{% endblock %}

@@ -79,9 +79,11 @@ class TenantUser(Base):
     name       = Column(String(200), default='')
     title      = Column(String(100), default='')
     role       = Column(String(20),  default='member')   # admin | member
-    active     = Column(Boolean,     default=True)
-    last_login = Column(DateTime,    nullable=True)
-    created_at = Column(DateTime,    default=datetime.utcnow)
+    active          = Column(Boolean,     default=True)
+    last_login      = Column(DateTime,    nullable=True)
+    created_at      = Column(DateTime,    default=datetime.utcnow)
+    totp_secret_enc = Column(Text,        default='')
+    totp_enabled    = Column(Boolean,     default=False)
 
     tenant = relationship('Tenant', back_populates='users')
 
@@ -188,6 +190,49 @@ class SyncConflict(Base):
             'status':            self.status,
             'created_at':        self.created_at.isoformat() if self.created_at else None,
         }
+
+
+class AdminTOTP(Base):
+    """TOTP authenticator secrets for super-admin accounts."""
+    __tablename__ = 'admin_totp'
+    email           = Column(String(200), primary_key=True)
+    totp_secret_enc = Column(Text,    default='')
+    totp_enabled    = Column(Boolean, default=False)
+    created_at      = Column(DateTime, default=datetime.utcnow)
+
+
+class SystemConfig(Base):
+    """Encrypted system-wide config (SMTP credentials, etc.)."""
+    __tablename__ = 'system_config'
+    key        = Column(String(100), primary_key=True)
+    value_enc  = Column(Text,    default='')
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+def get_config(key: str, default: str = '') -> str:
+    """Read an encrypted system config value, falling back to env var."""
+    try:
+        rec = SystemConfig.query.filter_by(key=key).first()
+        if rec and rec.value_enc:
+            from encryption import decrypt_str
+            val = decrypt_str('_system', rec.value_enc)
+            if val:
+                return val
+    except Exception:
+        pass
+    return os.getenv(key, default)
+
+
+def set_config(key: str, value: str):
+    """Encrypt and persist a system config value."""
+    from encryption import encrypt_str
+    rec = SystemConfig.query.filter_by(key=key).first()
+    if not rec:
+        rec = SystemConfig(key=key)
+        db.add(rec)
+    rec.value_enc  = encrypt_str('_system', value)
+    rec.updated_at = datetime.utcnow()
+    db.commit()
 
 
 def secrets_token():

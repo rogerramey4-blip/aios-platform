@@ -9,6 +9,7 @@ import time
 import secrets
 import smtplib
 import logging
+import pyotp
 from datetime import datetime
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -38,6 +39,19 @@ _lockout_store: dict = {}
 def mask_email(email: str) -> str:
     user, domain = email.split('@', 1)
     return user[0] + '***@' + domain
+
+
+def check_authorized(email: str) -> tuple:
+    """Validate email is authorized and not locked out, without sending an OTP."""
+    email = email.strip().lower()
+    is_admin  = email in ALLOWED_EMAILS
+    is_tenant = bool(_lookup_tenant_user(email))
+    if not is_admin and not is_tenant:
+        return False, 'That email address is not authorized to access this system.'
+    locked, secs = _locked_out(email)
+    if locked:
+        return False, f'Too many failed attempts. Try again in {secs // 60 + 1} minute(s).'
+    return True, ''
 
 
 def _rate_limited(email: str) -> bool:
@@ -143,10 +157,17 @@ def is_super_admin() -> bool:
 
 
 def _deliver(to: str, code: str):
-    host     = os.getenv('SMTP_HOST', '')
-    port     = int(os.getenv('SMTP_PORT', '587'))
-    user     = os.getenv('SMTP_USER', '')
-    password = os.getenv('SMTP_PASS', '')
+    try:
+        from models import get_config
+        host     = get_config('SMTP_HOST') or os.getenv('SMTP_HOST', '')
+        port     = int(get_config('SMTP_PORT') or os.getenv('SMTP_PORT', '587'))
+        user     = get_config('SMTP_USER') or os.getenv('SMTP_USER', '')
+        password = get_config('SMTP_PASS') or os.getenv('SMTP_PASS', '')
+    except Exception:
+        host     = os.getenv('SMTP_HOST', '')
+        port     = int(os.getenv('SMTP_PORT', '587'))
+        user     = os.getenv('SMTP_USER', '')
+        password = os.getenv('SMTP_PASS', '')
     from_    = user or 'aios@aievolutionservices.com'
 
     html = f"""<!DOCTYPE html>

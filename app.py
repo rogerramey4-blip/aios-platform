@@ -8,12 +8,14 @@ try:
 except ImportError:
     pass
 
-from auth import request_otp, verify_otp, require_auth, require_admin, mask_email
+from auth import (request_otp, verify_otp, check_authorized,
+                  require_auth, require_admin, mask_email, ALLOWED_EMAILS)
 from models import init_db, Tenant, TenantUser, Document, Domain, db
 from security import init_security, audit
 from onboarding import onboard_bp
 from admin_bp import admin_bp
 from sync_bp import sync_bp
+from totp_bp import totp_bp, totp_enabled, verify_totp_code
 import werkzeug.utils as wz
 
 app = Flask(__name__)
@@ -31,6 +33,7 @@ init_security(app)
 app.register_blueprint(onboard_bp)
 app.register_blueprint(admin_bp)
 app.register_blueprint(sync_bp)
+app.register_blueprint(totp_bp)
 
 # ── Custom-domain tenant routing ──────────────────────────────────────────────
 @app.before_request
@@ -83,6 +86,7 @@ def _nav(industry, active_key, pipeline_label, tools):
             _item('◈', 'Team & Roles',   f'/{industry}/team',      'team'),
             _item('◫', 'Documents',      f'/{industry}/documents', 'documents'),
             _item('◉', 'Domain & SSL',   f'/{industry}/domain',    'domain'),
+            _item('🔑', 'Authenticator (2FA)', '/totp/setup',      'totp_setup'),
         ]},
     ]
 
@@ -752,20 +756,52 @@ EMAILS_DATA = {
 }
 
 # ── Auth Routes ───────────────────────────────────────────────────────────────
+def _complete_login(email: str, method: str = 'email_otp'):
+    """Finalize session after any successful authentication method."""
+    now = _time.time()
+    if email in ALLOWED_EMAILS:
+        session['aios_auth']     = True
+        session['aios_email']    = email
+        session['aios_login_ts'] = now
+        audit('login', f'/{method}', 'success', f'admin={email} method={method}')
+        return redirect(url_for('index'))
+    user = TenantUser.query.filter_by(email=email, active=True).first()
+    if user:
+        user.last_login = datetime.utcnow()
+        db.commit()
+        session['tenant_auth']     = True
+        session['tenant_email']    = email
+        session['tenant_id']       = user.tenant_id
+        session['tenant_role']     = user.role
+        session['tenant_industry'] = user.tenant.industry
+        session['tenant_login_ts'] = now
+        audit('login', f'/{method}', 'success', f'tenant_user={email} method={method}')
+        return redirect(url_for('dashboard', industry=user.tenant.industry))
+    return redirect(url_for('login'))
+
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    if session.get('aios_auth'):
+    if session.get('aios_auth') or session.get('tenant_auth'):
         return redirect(url_for('index'))
     error   = None
     prefill = request.args.get('email', '')
     if request.method == 'POST':
         email = request.form.get('email', '').strip().lower()
-        ok, msg = request_otp(email)
-        if ok:
+        ok, msg = check_authorized(email)
+        if not ok:
+            error = msg
+        elif totp_enabled(email):
             session['aios_pending_email'] = email
-            return redirect(url_for('otp_page'))
-        error = msg
+            return redirect(url_for('totp_verify'))
+        else:
+            ok2, msg2 = request_otp(email)
+            if ok2:
+                session['aios_pending_email'] = email
+                return redirect(url_for('otp_page'))
+            error = msg2
     return render_template('login.html', error=error, prefill=prefill)
+
 
 @app.route('/otp', methods=['GET', 'POST'])
 def otp_page():
@@ -778,30 +814,40 @@ def otp_page():
         ok, msg = verify_otp(email, submitted)
         if ok:
             session.pop('aios_pending_email', None)
-            now = _time.time()
-            if email in __import__('auth').ALLOWED_EMAILS:
-                # Super-admin login
-                session['aios_auth']     = True
-                session['aios_email']    = email
-                session['aios_login_ts'] = now
-                audit('login', '/otp', 'success', f'admin={email}')
-                return redirect(url_for('index'))
-            else:
-                # Tenant user login
-                user = TenantUser.query.filter_by(email=email, active=True).first()
-                if user:
-                    user.last_login = datetime.utcnow()
-                    db.commit()
-                    session['tenant_auth']     = True
-                    session['tenant_email']    = email
-                    session['tenant_id']       = user.tenant_id
-                    session['tenant_role']     = user.role
-                    session['tenant_industry'] = user.tenant.industry
-                    session['tenant_login_ts'] = now
-                    audit('login', '/otp', 'success', f'tenant_user={email}')
-                    return redirect(url_for('dashboard', industry=user.tenant.industry))
+            return _complete_login(email, 'otp')
         error = msg
-    return render_template('otp.html', email=email, masked_email=mask_email(email), error=error)
+    has_totp = totp_enabled(email)
+    return render_template('otp.html', email=email, masked_email=mask_email(email),
+                           error=error, has_totp=has_totp)
+
+
+@app.route('/totp/verify', methods=['GET', 'POST'])
+def totp_verify():
+    email = session.get('aios_pending_email')
+    if not email:
+        return redirect(url_for('login'))
+    error = None
+    if request.method == 'POST':
+        code = request.form.get('code', '').replace(' ', '').strip()
+        ok, msg = verify_totp_code(email, code)
+        if ok:
+            session.pop('aios_pending_email', None)
+            return _complete_login(email, 'totp')
+        error = msg
+    return render_template('totp_verify.html', email=email,
+                           masked_email=mask_email(email), error=error)
+
+
+@app.route('/totp/email-fallback')
+def totp_email_fallback():
+    """Fallback: send email OTP from the TOTP verify page."""
+    email = session.get('aios_pending_email')
+    if not email:
+        return redirect(url_for('login'))
+    ok, _ = request_otp(email)
+    if ok:
+        return redirect(url_for('otp_page'))
+    return redirect(url_for('login'))
 
 @app.route('/logout')
 def logout():

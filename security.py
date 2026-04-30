@@ -37,7 +37,8 @@ def _rate_check(ip: str, limit: int = _RL_LIMIT) -> bool:
 
 # ── CSRF (A08) ────────────────────────────────────────────────────────────────
 _CSRF_SAFE_METHODS  = {'GET', 'HEAD', 'OPTIONS', 'TRACE'}
-_CSRF_EXEMPT_PATHS  = {'/login', '/otp', '/logout', '/health', '/onboard/create'}
+_CSRF_EXEMPT_PATHS  = {'/login', '/otp', '/logout', '/health', '/onboard/create',
+                       '/totp/verify', '/totp/email-fallback'}
 _CSRF_EXEMPT_PREFIX = ('/static/', '/api/')
 
 def _csrf_exempt(path: str) -> bool:
@@ -128,7 +129,7 @@ def init_security(app):
         path = request.path
 
         # Auth endpoints get tighter rate limit
-        limit = _RL_AUTH_LIMIT if path in ('/login', '/otp') else _RL_LIMIT
+        limit = _RL_AUTH_LIMIT if path in ('/login', '/otp', '/totp/verify') else _RL_LIMIT
         if _rate_check(ip, limit):
             log.warning('[AIOS Security] Rate limit: %s %s', ip, path)
             return Response('Too Many Requests', 429,

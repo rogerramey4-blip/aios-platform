@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html data-theme="dark">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AIOS — Set Up Authenticator App</title>
+  <script>(function(){var t=localStorage.getItem('aios-theme')||'dark';document.documentElement.setAttribute('data-theme',t);})();</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/aios.css">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <style>
+    .auth-page{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--bg-page);}
+    .setup-card{width:100%;max-width:500px;background:var(--bg-card);border:1px solid var(--border);border-radius:14px;overflow:hidden;animation:fadeIn .4s ease;}
+    .auth-header{padding:28px 36px 20px;border-bottom:1px solid var(--border-light);}
+    .auth-logo{font-size:30px;font-weight:900;letter-spacing:5px;margin-bottom:4px;}
+    .auth-logo span{color:var(--gold);}
+    .auth-logo-sub{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-muted);}
+    .auth-body{padding:28px 36px 32px;}
+    .auth-title{font-size:16px;font-weight:800;margin-bottom:4px;}
+    .auth-desc{font-size:12px;color:var(--text-secondary);margin-bottom:22px;line-height:1.6;}
+    .steps{display:flex;gap:0;margin-bottom:24px;}
+    .step{flex:1;text-align:center;padding:8px 4px;font-size:11px;color:var(--text-muted);font-weight:600;border-bottom:2px solid var(--border);}
+    .step.active{color:var(--gold);border-bottom-color:var(--gold);}
+    .qr-block{background:#fff;border-radius:12px;padding:16px;display:flex;justify-content:center;margin-bottom:20px;}
+    .qr-block img{width:180px;height:180px;display:block;}
+    .qr-fallback{background:var(--bg-tertiary);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:20px;font-size:11px;color:var(--text-muted);word-break:break-all;text-align:center;}
+    .secret-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text-secondary);margin-bottom:6px;}
+    .secret-box{background:var(--bg-tertiary);border:1px solid var(--border);border-radius:8px;padding:14px;font-family:monospace;font-size:15px;font-weight:700;letter-spacing:3px;color:var(--gold);text-align:center;margin-bottom:20px;word-break:break-all;cursor:pointer;position:relative;}
+    .secret-box:hover::after{content:'Click to copy';position:absolute;bottom:-22px;left:50%;transform:translateX(-50%);font-size:10px;color:var(--text-muted);font-family:var(--font);letter-spacing:0;font-weight:400;}
+    .app-badges{display:flex;gap:10px;margin-bottom:22px;}
+    .app-badge{flex:1;background:var(--bg-tertiary);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:11px;color:var(--text-secondary);text-align:center;}
+    .app-badge strong{display:block;font-size:12px;color:var(--text-primary);margin-bottom:2px;}
+    .divider{text-align:center;font-size:11px;color:var(--text-muted);margin:14px 0;position:relative;}
+    .divider::before,.divider::after{content:'';position:absolute;top:50%;width:40%;height:1px;background:var(--border);}
+    .divider::before{left:0;} .divider::after{right:0;}
+    .form-group{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;}
+    .form-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text-secondary);}
+    .otp-row{display:flex;gap:8px;justify-content:center;margin-bottom:18px;}
+    .otp-box{width:50px;height:58px;background:var(--bg-tertiary);border:1.5px solid var(--border);border-radius:8px;font-size:26px;font-weight:800;text-align:center;color:var(--text-primary);font-family:inherit;outline:none;caret-color:var(--gold);transition:border-color var(--ease),box-shadow var(--ease);}
+    .otp-box:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(227,179,65,.18);}
+    .otp-box.filled{border-color:rgba(63,185,80,.5);}
+    #code-hidden{display:none;}
+    .form-btn{width:100%;background:var(--gold);color:#0d1117;border:none;border-radius:var(--radius-sm);padding:12px;font-size:13px;font-weight:800;font-family:inherit;cursor:pointer;transition:all var(--ease);margin-top:4px;}
+    .form-btn:hover{background:#f0c050;transform:translateY(-1px);}
+    .form-btn:disabled{opacity:.5;cursor:default;transform:none;}
+    .form-error{background:rgba(248,81,73,.12);border:1px solid rgba(248,81,73,.35);border-radius:var(--radius-sm);padding:10px 14px;font-size:12px;color:var(--red);margin-bottom:16px;line-height:1.5;}
+    .already-badge{background:rgba(63,185,80,.12);border:1px solid rgba(63,185,80,.25);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--green);margin-bottom:16px;}
+    .auth-footer{padding:14px 36px;background:var(--bg-card-alt);border-top:1px solid var(--border-light);display:flex;justify-content:space-between;align-items:center;}
+    .auth-footer-brand{font-size:11px;color:var(--text-muted);}
+    .auth-footer-brand span{color:var(--gold);font-weight:700;}
+    /* Success state */
+    .success-icon{font-size:52px;text-align:center;margin-bottom:16px;}
+    .success-title{font-size:20px;font-weight:800;color:var(--green);text-align:center;margin-bottom:8px;}
+    .success-desc{font-size:13px;color:var(--text-secondary);text-align:center;line-height:1.7;margin-bottom:24px;}
+    .btn-back{display:block;width:100%;background:var(--gold);color:#0d1117;border:none;border-radius:var(--radius-sm);padding:12px;font-size:13px;font-weight:800;text-align:center;text-decoration:none;cursor:pointer;}
+    /* Disable panel */
+    .disable-panel{background:rgba(248,81,73,.06);border:1px solid rgba(248,81,73,.2);border-radius:8px;padding:14px;margin-top:24px;}
+    .disable-title{font-size:12px;font-weight:700;color:var(--red);margin-bottom:8px;}
+    .disable-row{display:flex;gap:8px;}
+    .disable-inp{flex:1;background:var(--bg-tertiary);border:1px solid var(--border);border-radius:6px;padding:9px 12px;font-size:13px;color:var(--text-primary);font-family:inherit;outline:none;}
+    .disable-inp:focus{border-color:var(--red);}
+    .disable-btn{background:rgba(248,81,73,.15);color:var(--red);border:1px solid rgba(248,81,73,.3);border-radius:6px;padding:9px 16px;font-size:12px;font-weight:700;cursor:pointer;}
+    .disable-btn:hover{background:rgba(248,81,73,.25);}
+  </style>
+</head>
+<body>
+<div class="auth-page">
+  <div class="setup-card">
+    <div class="auth-header">
+      <div class="auth-logo">A<span>IOS</span></div>
+      <div class="auth-logo-sub">AI Operating System &nbsp;·&nbsp; Two-Factor Authentication</div>
+    </div>
+
+    <div class="auth-body">
+    {% if complete %}
+      <!-- ── Success ── -->
+      <div class="success-icon">✅</div>
+      <div class="success-title">Authenticator App Enabled</div>
+      <div class="success-desc">
+        Your account is now protected with authenticator-based two-factor authentication.
+        The next time you sign in, you will be prompted for your app code instead of an email OTP.
+      </div>
+      <a href="/" class="btn-back">← Back to Dashboard</a>
+
+    {% else %}
+      <!-- ── Setup form ── -->
+      <div class="auth-title">Set Up Authenticator App</div>
+      <div class="auth-desc">
+        Use Google Authenticator, Microsoft Authenticator, or any TOTP-compatible app.
+        No internet connection is required once set up.
+      </div>
+
+      {% if already %}
+      <div class="already-badge">✓ Authenticator already enabled — scanning below will replace your current setup.</div>
+      {% endif %}
+
+      {% if error %}<div class="form-error">{{ error }}</div>{% endif %}
+
+      <div class="steps">
+        <div class="step active">1. Install App</div>
+        <div class="step active">2. Scan Code</div>
+        <div class="step active">3. Confirm</div>
+      </div>
+
+      <!-- App suggestions -->
+      <div class="app-badges">
+        <div class="app-badge">
+          <strong>Google Authenticator</strong>
+          iOS &amp; Android — free
+        </div>
+        <div class="app-badge">
+          <strong>Microsoft Authenticator</strong>
+          iOS &amp; Android — free
+        </div>
+      </div>
+
+      <!-- QR Code -->
+      {% if qr_b64 %}
+      <div class="qr-block">
+        <img src="data:image/png;base64,{{ qr_b64 }}" alt="Scan with authenticator app">
+      </div>
+      {% else %}
+      <div class="qr-fallback">
+        <div style="font-weight:700;color:var(--text-primary);margin-bottom:6px;">QR code unavailable — use manual entry below</div>
+        <div style="color:var(--gold);font-family:monospace;font-size:12px;">{{ uri }}</div>
+      </div>
+      {% endif %}
+
+      <!-- Manual secret -->
+      <div class="secret-label">Or enter this key manually in your app:</div>
+      <div class="secret-box" id="secret-box" onclick="copySecret()">{{ secret }}</div>
+
+      <div class="divider">then confirm below</div>
+
+      <!-- Confirmation form -->
+      <form method="POST" action="/totp/setup" id="totp-form" autocomplete="off">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="code" id="code-hidden">
+        <div class="form-lbl" style="text-align:center;margin-bottom:10px;">Enter the 6-digit code from your app</div>
+        <div class="otp-row">
+          {% for i in range(6) %}
+          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" pattern="[0-9]"
+                 data-idx="{{ i }}" {% if i == 0 %}autofocus{% endif %}>
+          {% endfor %}
+        </div>
+        <button class="form-btn" type="submit" id="verify-btn" disabled>Activate Authenticator →</button>
+      </form>
+
+      {% if already %}
+      <!-- Disable section -->
+      <div class="disable-panel">
+        <div class="disable-title">⚠ Disable Authenticator</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">Enter your current authenticator code to remove 2FA from this account.</div>
+        <div class="disable-row">
+          <input class="disable-inp" type="text" inputmode="numeric" id="disable-code"
+                 maxlength="6" placeholder="6-digit code" autocomplete="off">
+          <button class="disable-btn" onclick="disableTotp()">Disable</button>
+        </div>
+        <div id="disable-msg" style="font-size:12px;margin-top:8px;"></div>
+      </div>
+      {% endif %}
+
+    {% endif %}
+    </div>
+
+    <div class="auth-footer">
+      <div class="auth-footer-brand">Powered by <span>AI Evolution Services</span></div>
+      <div class="auth-footer-lock">🔒 TOTP RFC 6238</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  // 6-box OTP input
+  const boxes = Array.from(document.querySelectorAll('.otp-box'));
+  const hidden = document.getElementById('code-hidden');
+  const btn    = document.getElementById('verify-btn');
+  if (!boxes.length) return;
+  function getCode(){return boxes.map(b=>b.value).join('');}
+  function refresh(){const c=getCode();if(hidden)hidden.value=c;if(btn)btn.disabled=c.length<6;boxes.forEach(b=>b.classList.toggle('filled',b.value!=''));}
+  boxes.forEach((box,i)=>{
+    box.addEventListener('input',e=>{const v=e.target.value.replace(/\D/g,'');box.value=v.slice(-1);if(v&&i<boxes.length-1)boxes[i+1].focus();refresh();});
+    box.addEventListener('keydown',e=>{
+      if(e.key==='Backspace'&&!box.value&&i>0){boxes[i-1].focus();boxes[i-1].value='';refresh();}
+      if(e.key==='ArrowLeft'&&i>0)boxes[i-1].focus();
+      if(e.key==='ArrowRight'&&i<boxes.length-1)boxes[i+1].focus();
+    });
+    box.addEventListener('paste',e=>{e.preventDefault();const p=(e.clipboardData||window.clipboardData).getData('text').replace(/\D/g,'').slice(0,6);p.split('').forEach((ch,j)=>{if(boxes[j])boxes[j].value=ch;});boxes[Math.min(p.length,boxes.length-1)].focus();refresh();});
+  });
+  const form = document.getElementById('totp-form');
+  if(form) form.addEventListener('submit',()=>{if(btn){btn.disabled=true;btn.textContent='Activating…';}});
+})();
+
+function copySecret() {
+  const t = document.getElementById('secret-box').innerText.replace(/\s/g,'');
+  navigator.clipboard?.writeText(t).then(()=>{
+    const el = document.getElementById('secret-box');
+    const orig = el.innerText;
+    el.innerText = 'Copied!';
+    setTimeout(()=>el.innerText=orig, 1400);
+  });
+}
+
+async function disableTotp() {
+  const code = document.getElementById('disable-code')?.value.trim();
+  const msg  = document.getElementById('disable-msg');
+  if (!code || code.length !== 6) { if(msg) msg.style.color='var(--red)', msg.textContent='Enter a 6-digit code.'; return; }
+  const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+  try {
+    const r = await fetch('/totp/disable', {
+      method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRF-Token':csrf},
+      body:'code='+encodeURIComponent(code)
+    });
+    const d = await r.json();
+    if (d.ok) { window.location.href = '/'; }
+    else { if(msg) msg.style.color='var(--red)', msg.textContent=d.error||'Failed.'; }
+  } catch(e) { if(msg) msg.style.color='var(--red)', msg.textContent='Request failed.'; }
+}
+</script>
+</body>
+</html>

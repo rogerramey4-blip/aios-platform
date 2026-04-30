@@ -3,6 +3,7 @@ AIOS Admin Blueprint — /admin
 Full client management panel for super-admins.
 All routes require require_admin (the 3 authorized emails only).
 """
+import os
 import json
 import logging
 import secrets
@@ -278,4 +279,33 @@ def _check_dns_txt(domain: str, token: str) -> bool:
     return False
 
 
-import os  # noqa: E402 (needed for APP_HOSTNAME above)
+
+
+# ── SMTP settings ─────────────────────────────────────────────────────────────
+@admin_bp.route('/settings/smtp', methods=['GET', 'POST'])
+@require_admin
+def smtp_settings():
+    from models import get_config, set_config
+    saved_msg = None
+    error     = None
+    if request.method == 'POST':
+        host = request.form.get('smtp_host', '').strip()
+        port = request.form.get('smtp_port', '587').strip()
+        user = request.form.get('smtp_user', '').strip()
+        pw   = request.form.get('smtp_pass', '').strip()
+        if host: set_config('SMTP_HOST', host)
+        if port: set_config('SMTP_PORT', port)
+        if user: set_config('SMTP_USER', user)
+        if pw:   set_config('SMTP_PASS', pw)
+        audit('smtp_updated', '/admin/settings/smtp', 'success',
+              f'by={session.get("aios_email", "")} host={host}')
+        saved_msg = 'SMTP credentials saved and encrypted in the database.'
+    return render_template('admin/smtp.html',
+        active     = 'smtp',
+        smtp_host  = get_config('SMTP_HOST'),
+        smtp_port  = get_config('SMTP_PORT') or '587',
+        smtp_user  = get_config('SMTP_USER'),
+        smtp_pass_set = bool(get_config('SMTP_PASS')),
+        saved_msg  = saved_msg,
+        error      = error,
+    )

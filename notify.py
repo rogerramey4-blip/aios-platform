@@ -12,12 +12,20 @@ log = logging.getLogger(__name__)
 
 
 def _smtp_cfg():
-    return (
-        os.getenv('SMTP_HOST', ''),
-        int(os.getenv('SMTP_PORT', '587')),
-        os.getenv('SMTP_USER', ''),
-        os.getenv('SMTP_PASS', ''),
-    )
+    try:
+        from models import get_config
+        host     = get_config('SMTP_HOST') or os.getenv('SMTP_HOST', '')
+        port_str = get_config('SMTP_PORT') or os.getenv('SMTP_PORT', '587')
+        user     = get_config('SMTP_USER') or os.getenv('SMTP_USER', '')
+        password = get_config('SMTP_PASS') or os.getenv('SMTP_PASS', '')
+        return host, int(port_str or 587), user, password
+    except Exception:
+        return (
+            os.getenv('SMTP_HOST', ''),
+            int(os.getenv('SMTP_PORT', '587')),
+            os.getenv('SMTP_USER', ''),
+            os.getenv('SMTP_PASS', ''),
+        )
 
 
 def send(to: str | list, subject: str, html: str, text: str = ''):

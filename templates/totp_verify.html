@@ -2,7 +2,7 @@
 <html data-theme="dark">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>AIOS — Enter Access Code</title>
+  <title>AIOS — Authenticator Verification</title>
   <script>(function(){var t=localStorage.getItem('aios-theme')||'dark';document.documentElement.setAttribute('data-theme',t);})();</script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -18,8 +18,7 @@
     .auth-body{padding:28px 36px 32px;}
     .auth-title{font-size:16px;font-weight:700;margin-bottom:6px;}
     .auth-desc{font-size:12px;color:var(--text-secondary);margin-bottom:8px;line-height:1.6;}
-    .sent-to{display:inline-flex;align-items:center;gap:6px;background:rgba(63,185,80,.1);border:1px solid rgba(63,185,80,.25);border-radius:20px;padding:4px 12px;font-size:11px;color:var(--green);font-weight:600;margin-bottom:22px;}
-    .sent-to::before{content:'✓';}
+    .sent-to{display:inline-flex;align-items:center;gap:6px;background:rgba(227,179,65,.1);border:1px solid rgba(227,179,65,.3);border-radius:20px;padding:4px 12px;font-size:11px;color:var(--gold);font-weight:600;margin-bottom:22px;}
     .otp-row{display:flex;gap:8px;justify-content:center;margin-bottom:22px;}
     .otp-box{width:52px;height:62px;background:var(--bg-tertiary);border:1.5px solid var(--border);border-radius:8px;font-size:28px;font-weight:800;text-align:center;color:var(--text-primary);font-family:inherit;font-variant-numeric:tabular-nums;outline:none;caret-color:var(--gold);transition:border-color var(--ease),box-shadow var(--ease);}
     .otp-box:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(227,179,65,.18);}
@@ -30,14 +29,13 @@
     .form-btn:disabled{opacity:.5;cursor:default;transform:none;}
     .form-error{background:rgba(248,81,73,.12);border:1px solid rgba(248,81,73,.35);border-radius:var(--radius-sm);padding:10px 14px;font-size:12px;color:var(--red);margin-bottom:16px;line-height:1.5;}
     .auth-links{display:flex;justify-content:space-between;font-size:12px;}
-    .auth-link{color:var(--text-muted);cursor:pointer;transition:color var(--ease);}
+    .auth-link{color:var(--text-muted);cursor:pointer;text-decoration:none;transition:color var(--ease);}
     .auth-link:hover{color:var(--gold);}
-    .countdown{font-size:11px;color:var(--text-muted);text-align:center;margin-top:10px;}
-    .countdown span{color:var(--orange);font-weight:600;font-variant-numeric:tabular-nums;}
     .auth-footer{padding:16px 36px;background:var(--bg-card-alt);border-top:1px solid var(--border-light);display:flex;justify-content:space-between;align-items:center;}
     .auth-footer-brand{font-size:11px;color:var(--text-muted);}
     .auth-footer-brand span{color:var(--gold);font-weight:700;}
     .auth-footer-lock{font-size:11px;color:var(--text-muted);}
+    .totp-hint{font-size:11px;color:var(--text-muted);text-align:center;margin-top:12px;line-height:1.6;}
   </style>
 </head>
 <body>
@@ -45,38 +43,34 @@
   <div class="auth-card">
     <div class="auth-header">
       <div class="auth-logo">A<span>IOS</span></div>
-      <div class="auth-logo-sub">AI Operating System &nbsp;·&nbsp; Verify Identity</div>
+      <div class="auth-logo-sub">AI Operating System &nbsp;·&nbsp; Authenticator Verification</div>
     </div>
     <div class="auth-body">
-      <div class="auth-title">Enter Access Code</div>
-      <div class="auth-desc">A 6-digit code was sent to:</div>
-      <div class="sent-to">{{ masked_email }}</div>
+      <div class="auth-title">Two-Factor Authentication</div>
+      <div class="auth-desc">Open your authenticator app and enter the 6-digit code for:</div>
+      <div class="sent-to">🔑 AIOS &nbsp;·&nbsp; {{ masked_email }}</div>
       {% if error %}<div class="form-error">{{ error }}</div>{% endif %}
-      <form method="POST" action="/otp" id="otp-form" autocomplete="off">
-        <input type="hidden" name="email" value="{{ email }}">
+      <form method="POST" action="/totp/verify" id="otp-form" autocomplete="off">
         <input type="hidden" name="code" id="code-hidden">
         <div class="otp-row" id="otp-row">
           {% for i in range(6) %}
           <input class="otp-box" type="text" inputmode="numeric" maxlength="1" pattern="[0-9]"
-                 data-idx="{{ i }}" autocomplete="one-time-code" {% if i == 0 %}autofocus{% endif %}>
+                 data-idx="{{ i }}" {% if i == 0 %}autofocus{% endif %}>
           {% endfor %}
         </div>
-        <button class="form-btn" type="submit" id="verify-btn" disabled>Verify Code →</button>
+        <button class="form-btn" type="submit" id="verify-btn" disabled>Verify →</button>
       </form>
       <div class="auth-links">
         <a class="auth-link" href="/login">← Different email</a>
-        <a class="auth-link" href="/login?email={{ email }}">Resend code</a>
+        <a class="auth-link" href="/totp/email-fallback">Use email code instead</a>
       </div>
-      {% if has_totp %}
-      <div style="text-align:center;margin-top:14px;">
-        <a href="/totp/verify" style="font-size:12px;color:var(--gold);text-decoration:none;">🔑 Use authenticator app instead →</a>
+      <div class="totp-hint">
+        Codes rotate every 30 seconds. If it fails, wait for the next code and try again.
       </div>
-      {% endif %}
-      <div class="countdown" id="countdown"></div>
     </div>
     <div class="auth-footer">
       <div class="auth-footer-brand">Powered by <span>AI Evolution Services</span></div>
-      <div class="auth-footer-lock">🔒 Expires in 10 min</div>
+      <div class="auth-footer-lock">🔒 Authenticator 2FA</div>
     </div>
   </div>
 </div>
@@ -97,11 +91,6 @@
     });
     box.addEventListener('paste',e=>{e.preventDefault();const p=(e.clipboardData||window.clipboardData).getData('text').replace(/\D/g,'').slice(0,6);p.split('').forEach((ch,j)=>{if(boxes[j])boxes[j].value=ch;});boxes[Math.min(p.length,boxes.length-1)].focus();refresh();});
   });
-  const cdEl=document.getElementById('countdown');
-  let rem=600;
-  function tick(){if(rem<=0){cdEl.innerHTML='<span style="color:var(--red)">Code expired — please request a new one</span>';btn.disabled=true;return;}
-  const m=Math.floor(rem/60),s=String(rem%60).padStart(2,'0');cdEl.innerHTML=`Code expires in <span>${m}:${s}</span>`;rem--;setTimeout(tick,1000);}
-  tick();
   form.addEventListener('submit',()=>{btn.disabled=true;btn.textContent='Verifying…';});
 })();
 </script>
