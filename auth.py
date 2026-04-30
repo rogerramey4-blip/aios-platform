@@ -206,9 +206,14 @@ def _deliver(to: str, code: str):
         msg['From']    = f'AIOS Command Center <{from_}>'
         msg['To']      = to
         msg.attach(MIMEText(html, 'html'))
-        with smtplib.SMTP(host, port, timeout=15) as srv:
-            srv.ehlo(); srv.starttls(); srv.login(user, password)
-            srv.sendmail(from_, [to], msg.as_string())
+        if port == 465:
+            with smtplib.SMTP_SSL(host, port, timeout=15) as srv:
+                srv.login(user, password)
+                srv.sendmail(from_, [to], msg.as_string())
+        else:
+            with smtplib.SMTP(host, port, timeout=15) as srv:
+                srv.ehlo(); srv.starttls(); srv.login(user, password)
+                srv.sendmail(from_, [to], msg.as_string())
         log.info('[AIOS Auth] OTP sent to %s', to)
     except Exception as exc:
         log.error('[AIOS Auth] SMTP failed (%s) — printing OTP to console', exc)

@@ -48,9 +48,14 @@ def send(to: str | list, subject: str, html: str, text: str = ''):
     msg.attach(MIMEText(html, 'html'))
 
     try:
-        with smtplib.SMTP(host, port, timeout=15) as srv:
-            srv.ehlo(); srv.starttls(); srv.login(user, password)
-            srv.sendmail(from_addr, recipients, msg.as_string())
+        if port == 465:
+            with smtplib.SMTP_SSL(host, port, timeout=15) as srv:
+                srv.login(user, password)
+                srv.sendmail(from_addr, recipients, msg.as_string())
+        else:
+            with smtplib.SMTP(host, port, timeout=15) as srv:
+                srv.ehlo(); srv.starttls(); srv.login(user, password)
+                srv.sendmail(from_addr, recipients, msg.as_string())
         log.info('[AIOS Notify] Sent "%s" to %s', subject, recipients)
     except Exception as exc:
         log.error('[AIOS Notify] SMTP error: %s', exc)
