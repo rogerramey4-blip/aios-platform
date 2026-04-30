@@ -70,11 +70,14 @@ def _send_resend(recipients: list, subject: str, html: str, text: str, api_key: 
     try:
         import resend as _resend
         _resend.api_key = api_key
-        # RESEND_FROM: set to your verified domain address once verified.
-        # Defaults to Resend's shared address which works immediately with no verification.
-        from_addr = _cfg('RESEND_FROM') or 'AIOS <onboarding@resend.dev>'
-        if '@' in from_addr and '<' not in from_addr:
-            from_addr = f'AIOS <{from_addr}>'
+        # Use verified custom domain address if RESEND_FROM is explicitly set,
+        # otherwise use Resend's shared sending address (works with no domain setup).
+        custom_from = os.getenv('RESEND_FROM', '').strip()
+        if custom_from and '@' in custom_from:
+            from_addr = custom_from if '<' in custom_from else f'AIOS <{custom_from}>'
+        else:
+            from_addr = 'AIOS <onboarding@resend.dev>'
+        log.info('[AIOS Notify] Resend from=%s to=%s', from_addr, recipients)
         params = {
             'from':    from_addr,
             'to':      recipients,
