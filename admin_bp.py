@@ -282,11 +282,6 @@ def _check_dns_txt(domain: str, token: str) -> bool:
 
 
 # ── Gmail API authorization ───────────────────────────────────────────────────
-@admin_bp.route('/gmail-ping')
-def gmail_ping():
-    return 'gmail-ping-v3.2.18-OK', 200
-
-
 @admin_bp.route('/gmail-auth')
 @require_admin
 def gmail_auth():

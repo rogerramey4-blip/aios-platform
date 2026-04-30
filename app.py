@@ -814,11 +814,7 @@ def otp_page():
     error = None
     if request.method == 'POST':
         submitted = request.form.get('code', '').strip()
-        import logging as _lg; _lg.getLogger(__name__).warning(
-            '[AIOS OTP POST] email=%s submitted_len=%d session_had_email=%s',
-            email, len(submitted), bool(session.get('aios_pending_email')))
         ok, msg = verify_otp(email, submitted)
-        _lg.getLogger(__name__).warning('[AIOS OTP POST] verify result: ok=%s msg=%s', ok, msg)
         if ok:
             session.pop('aios_pending_email', None)
             return _complete_login(email, 'otp')
