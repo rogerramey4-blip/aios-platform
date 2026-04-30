@@ -34,9 +34,9 @@ def send(to: str | list, subject: str, html: str, text: str = ''):
     if resend_key:
         ok, err = _send_resend(recipients, subject, html, text, resend_key)
         if ok:
-            log.info('[AIOS Notify] Resend accepted delivery to %s', recipients)
+            log.warning('[AIOS Notify] Resend delivered to %s', recipients)
             return
-        log.error('[AIOS Notify] Resend FAILED: %s', err)
+        log.warning('[AIOS Notify] Resend FAILED: %s', err)
 
     # ── 2. SMTP fallback ──────────────────────────────────────────────────────
     host     = _cfg('SMTP_HOST')
