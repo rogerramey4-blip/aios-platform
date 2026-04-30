@@ -153,6 +153,8 @@ def is_super_admin() -> bool:
 
 
 def _deliver(to: str, code: str):
+    # Always emit to logs first — visible in Railway regardless of email outcome
+    log.warning('[AIOS OTP] *** CODE for %s: %s (valid 10 min) ***', to, code)
     html = f"""<!DOCTYPE html>
 <html><body style="margin:0;padding:24px;background:#0a0e14;font-family:'Inter',sans-serif;">
   <div style="max-width:480px;margin:0 auto;background:#0d1117;border:1px solid #30363d;border-radius:12px;overflow:hidden;">

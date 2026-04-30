@@ -1,4 +1,4 @@
-VERSION    = 'v3.2.7'
+VERSION    = 'v3.2.8'
 BUILD_DATE = '2026-04-30'
 
 CHANGES = [
@@ -28,4 +28,7 @@ CHANGES = [
     'SQLite busy_timeout=10000ms: prevents DB locked error on multi-worker gunicorn startup',
     # v3.2.7
     'Gunicorn: 1 worker + 4 threads — fixes OTP cross-worker memory split (in-memory _otp_store)',
+    # v3.2.8
+    'Always log OTP code via log.warning() in _deliver() — visible in Railway logs even if email fails',
+    'Surface Resend suppression/error at log.error level for immediate diagnosis',
 ]
