@@ -7,12 +7,8 @@ Tenant users: any active email in TenantUser table
 import os
 import time
 import secrets
-import smtplib
 import logging
 import pyotp
-from datetime import datetime
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 from functools import wraps
 from flask import session, redirect, url_for, request
 
@@ -157,19 +153,6 @@ def is_super_admin() -> bool:
 
 
 def _deliver(to: str, code: str):
-    try:
-        from models import get_config
-        host     = get_config('SMTP_HOST') or os.getenv('SMTP_HOST', '')
-        port     = int(get_config('SMTP_PORT') or os.getenv('SMTP_PORT', '587'))
-        user     = get_config('SMTP_USER') or os.getenv('SMTP_USER', '')
-        password = get_config('SMTP_PASS') or os.getenv('SMTP_PASS', '')
-    except Exception:
-        host     = os.getenv('SMTP_HOST', '')
-        port     = int(os.getenv('SMTP_PORT', '587'))
-        user     = os.getenv('SMTP_USER', '')
-        password = os.getenv('SMTP_PASS', '')
-    from_    = user or 'aios@aievolutionservices.com'
-
     html = f"""<!DOCTYPE html>
 <html><body style="margin:0;padding:24px;background:#0a0e14;font-family:'Inter',sans-serif;">
   <div style="max-width:480px;margin:0 auto;background:#0d1117;border:1px solid #30363d;border-radius:12px;overflow:hidden;">
@@ -192,29 +175,13 @@ def _deliver(to: str, code: str):
   </div>
 </body></html>"""
 
-    if not host or not user or not password:
+    try:
+        from notify import send as _send_email
+        _send_email(to, f'Your AIOS Access Code: {code}', html)
+    except Exception as exc:
+        log.error('[AIOS Auth] Email delivery failed (%s) — printing OTP to console', exc)
         print('\n  ============================================')
         print(f'  AIOS OTP  >>  {to}')
         print(f'  Code: {code}   (expires in 10 minutes)')
         print('  ============================================\n')
-        log.warning('[AIOS Auth] SMTP not configured — OTP for %s: %s', to, code)
-        return
-
-    try:
-        msg = MIMEMultipart('alternative')
-        msg['Subject'] = f'Your AIOS Access Code: {code}'
-        msg['From']    = f'AIOS Command Center <{from_}>'
-        msg['To']      = to
-        msg.attach(MIMEText(html, 'html'))
-        if port == 465:
-            with smtplib.SMTP_SSL(host, port, timeout=15) as srv:
-                srv.login(user, password)
-                srv.sendmail(from_, [to], msg.as_string())
-        else:
-            with smtplib.SMTP(host, port, timeout=15) as srv:
-                srv.ehlo(); srv.starttls(); srv.login(user, password)
-                srv.sendmail(from_, [to], msg.as_string())
-        log.info('[AIOS Auth] OTP sent to %s', to)
-    except Exception as exc:
-        log.error('[AIOS Auth] SMTP failed (%s) — printing OTP to console', exc)
         print(f'\n  [AIOS] OTP for {to}: {code}\n')
