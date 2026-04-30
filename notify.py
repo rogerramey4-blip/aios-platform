@@ -25,9 +25,10 @@ def _cfg(key: str, default: str = '') -> str:
 
 def _gmail_access_token() -> str:
     """Exchange stored refresh_token for a short-lived access_token."""
-    refresh_token = _cfg('GMAIL_REFRESH_TOKEN')
-    client_id     = _cfg('GOOGLE_CLIENT_ID')
-    client_secret = _cfg('GOOGLE_CLIENT_SECRET')
+    # Env var takes priority so token survives DB resets across deploys
+    refresh_token = os.getenv('GMAIL_REFRESH_TOKEN') or _cfg('GMAIL_REFRESH_TOKEN')
+    client_id     = os.getenv('GOOGLE_CLIENT_ID')    or _cfg('GOOGLE_CLIENT_ID')
+    client_secret = os.getenv('GOOGLE_CLIENT_SECRET') or _cfg('GOOGLE_CLIENT_SECRET')
     if not all([refresh_token, client_id, client_secret]):
         return ''
     data = urllib.parse.urlencode({

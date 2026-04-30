@@ -343,11 +343,15 @@ def gmail_callback():
                 '</body></html>'), 400
     from models import set_config
     set_config('GMAIL_REFRESH_TOKEN', refresh_token)
-    return ('<html><body style="background:#0a0e14;color:#e6edf3;font-family:monospace;padding:32px">'
-            '<h2 style="color:#3fb950">Gmail authorized!</h2>'
-            '<p>AIOS will now send email via the Gmail API (HTTPS). '
-            'Test it: <a href="/admin/test-email" style="color:#e3b341">/admin/test-email</a></p>'
-            '</body></html>')
+    return (f'<html><body style="background:#0a0e14;color:#e6edf3;font-family:monospace;padding:32px">'
+            f'<h2 style="color:#3fb950">Gmail authorized!</h2>'
+            f'<p>Emails will now send via the Gmail API.</p>'
+            f'<p style="color:#e3b341;font-weight:bold">IMPORTANT: Copy this token into Railway environment variables'
+            f' as <code>GMAIL_REFRESH_TOKEN</code> so it survives redeployments:</p>'
+            f'<textarea style="width:100%;height:80px;background:#161b22;color:#3fb950;border:1px solid #30363d;'
+            f'padding:8px;font-family:monospace;font-size:12px">{refresh_token}</textarea>'
+            f'<p>After adding to Railway, test: <a href="/admin/test-email" style="color:#e3b341">/admin/test-email</a></p>'
+            f'</body></html>')
 
 
 # ── SMTP settings ─────────────────────────────────────────────────────────────
