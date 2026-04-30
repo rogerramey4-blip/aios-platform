@@ -51,6 +51,7 @@
       <div class="sent-to">🔑 AIOS &nbsp;·&nbsp; {{ masked_email }}</div>
       {% if error %}<div class="form-error">{{ error }}</div>{% endif %}
       <form method="POST" action="/totp/verify" id="otp-form" autocomplete="off">
+        <input type="hidden" name="email" value="{{ email }}">
         <input type="hidden" name="code" id="code-hidden">
         <div class="otp-row" id="otp-row">
           {% for i in range(6) %}

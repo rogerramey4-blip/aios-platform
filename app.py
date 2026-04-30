@@ -831,6 +831,8 @@ def otp_page():
 @app.route('/totp/verify', methods=['GET', 'POST'])
 def totp_verify():
     email = session.get('aios_pending_email')
+    if not email and request.method == 'POST':
+        email = request.form.get('email', '').strip().lower()
     if not email:
         return redirect(url_for('login'))
     error = None
