@@ -1142,5 +1142,69 @@ def test_email():
     return f'<html><body style="background:#0a0e14;color:#e6edf3;font-family:monospace;padding:32px"><h2 style="color:#e3b341">AIOS Email Diagnostics</h2><table style="border-collapse:collapse;background:#0d1117;border:1px solid #30363d;border-radius:8px">{rows}</table></body></html>'
 
 
+@app.route('/admin/gmail-auth')
+@require_admin
+def gmail_auth():
+    import urllib.parse
+    client_id = os.getenv('GOOGLE_CLIENT_ID', '')
+    if not client_id:
+        return ('<html><body style="background:#0a0e14;color:#e6edf3;font-family:monospace;padding:32px">'
+                '<h2 style="color:#e3b341">Missing GOOGLE_CLIENT_ID</h2>'
+                '<p>Add <code>GOOGLE_CLIENT_ID</code> and <code>GOOGLE_CLIENT_SECRET</code> '
+                'to Railway environment variables, then reload this page.</p></body></html>'), 400
+    params = urllib.parse.urlencode({
+        'client_id':     client_id,
+        'redirect_uri':  url_for('gmail_callback', _external=True),
+        'scope':         'https://www.googleapis.com/auth/gmail.send',
+        'response_type': 'code',
+        'access_type':   'offline',
+        'prompt':        'consent',
+    })
+    return redirect(f'https://accounts.google.com/o/oauth2/auth?{params}')
+
+
+@app.route('/admin/gmail-callback')
+@require_admin
+def gmail_callback():
+    import urllib.request, urllib.parse, json as _json
+    code = request.args.get('code', '')
+    if not code:
+        return '<h2>Authorization failed — no code returned.</h2>', 400
+    client_id     = os.getenv('GOOGLE_CLIENT_ID', '')
+    client_secret = os.getenv('GOOGLE_CLIENT_SECRET', '')
+    data = urllib.parse.urlencode({
+        'code':          code,
+        'client_id':     client_id,
+        'client_secret': client_secret,
+        'redirect_uri':  url_for('gmail_callback', _external=True),
+        'grant_type':    'authorization_code',
+    }).encode()
+    req = urllib.request.Request(
+        'https://oauth2.googleapis.com/token',
+        data=data,
+        headers={'Content-Type': 'application/x-www-form-urlencoded'},
+        method='POST',
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            token = _json.loads(resp.read())
+    except Exception as exc:
+        return f'<html><body style="background:#0a0e14;color:#e6edf3;padding:32px"><h2 style="color:red">Token exchange failed: {exc}</h2></body></html>', 500
+    refresh_token = token.get('refresh_token', '')
+    if not refresh_token:
+        return ('<html><body style="background:#0a0e14;color:#e6edf3;padding:32px">'
+                '<h2 style="color:red">No refresh_token returned.</h2>'
+                '<p>This usually means the app was already authorized without <code>prompt=consent</code>. '
+                'Revoke access at <a href="https://myaccount.google.com/permissions" style="color:#e3b341">'
+                'myaccount.google.com/permissions</a> then try again.</p></body></html>'), 400
+    from models import set_config
+    set_config('GMAIL_REFRESH_TOKEN', refresh_token)
+    return ('<html><body style="background:#0a0e14;color:#e6edf3;font-family:monospace;padding:32px">'
+            '<h2 style="color:#3fb950">Gmail authorized successfully!</h2>'
+            '<p>AIOS will now send email via the Gmail API. '
+            'Visit <a href="/admin/test-email" style="color:#e3b341">/admin/test-email</a> to confirm.</p>'
+            '</body></html>')
+
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

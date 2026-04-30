@@ -1,4 +1,4 @@
-VERSION    = 'v3.2.14'
+VERSION    = 'v3.2.15'
 BUILD_DATE = '2026-04-30'
 
 CHANGES = [
@@ -35,5 +35,6 @@ CHANGES = [
     'OTP storage moved from in-memory dict to SQLite OTPCode table — survives restarts and deployments',
     'Resend auto-unsuppress: detects suppression error, removes address, retries send automatically',
     # v3.2.14
-    'Switch email to SendGrid HTTP API (Railway blocks SMTP): no more timed-out failures',
+    'Gmail API over HTTPS: replaces SMTP (blocked by cloud IPs) — OAuth2 refresh token flow',
+    '/admin/gmail-auth + /admin/gmail-callback: one-time browser authorization stores refresh token',
 ]

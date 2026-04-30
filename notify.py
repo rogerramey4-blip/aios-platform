@@ -1,13 +1,16 @@
 """
-AIOS Notification — sends transactional emails.
-Primary:  SendGrid HTTP API (not blocked by Railway).
+AIOS Notification — sends transactional emails via Gmail API (HTTPS, not SMTP).
 Fallback: console / Railway logs.
 """
 import os
 import json
+import base64
 import logging
 import urllib.request
 import urllib.error
+import urllib.parse
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 log = logging.getLogger(__name__)
 
@@ -20,49 +23,72 @@ def _cfg(key: str, default: str = '') -> str:
         return os.getenv(key, default)
 
 
-def _send_sendgrid(recipients: list, subject: str, html: str, text: str = '') -> bool:
-    api_key  = _cfg('SENDGRID_API_KEY')
-    from_addr = _cfg('SENDGRID_FROM') or _cfg('SMTP_USER') or ''
-    if not api_key or not from_addr:
-        return False
-    payload = {
-        'personalizations': [{'to': [{'email': r} for r in recipients]}],
-        'from':    {'email': from_addr},
-        'subject': subject,
-        'content': [],
-    }
-    if text:
-        payload['content'].append({'type': 'text/plain', 'value': text})
-    payload['content'].append({'type': 'text/html', 'value': html})
+def _gmail_access_token() -> str:
+    """Exchange stored refresh_token for a short-lived access_token."""
+    refresh_token = _cfg('GMAIL_REFRESH_TOKEN')
+    client_id     = _cfg('GOOGLE_CLIENT_ID')
+    client_secret = _cfg('GOOGLE_CLIENT_SECRET')
+    if not all([refresh_token, client_id, client_secret]):
+        return ''
+    data = urllib.parse.urlencode({
+        'client_id':     client_id,
+        'client_secret': client_secret,
+        'refresh_token': refresh_token,
+        'grant_type':    'refresh_token',
+    }).encode()
     req = urllib.request.Request(
-        'https://api.sendgrid.com/v3/mail/send',
-        data=json.dumps(payload).encode(),
-        headers={
-            'Authorization': f'Bearer {api_key}',
-            'Content-Type':  'application/json',
-        },
+        'https://oauth2.googleapis.com/token',
+        data=data,
+        headers={'Content-Type': 'application/x-www-form-urlencoded'},
         method='POST',
     )
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        return json.loads(resp.read()).get('access_token', '')
+
+
+def _send_gmail_api(recipients: list, subject: str, html: str, text: str = '') -> bool:
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            ok = resp.status in (200, 202)
+        access_token = _gmail_access_token()
+        if not access_token:
+            return False
+        from_addr = _cfg('SMTP_USER') or _cfg('GMAIL_FROM') or 'rogerramey4@gmail.com'
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From']    = f'AIOS <{from_addr}>'
+        msg['To']      = ', '.join(recipients)
+        if text:
+            msg.attach(MIMEText(text, 'plain'))
+        msg.attach(MIMEText(html, 'html'))
+        raw = base64.urlsafe_b64encode(msg.as_bytes()).decode().rstrip('=')
+        payload = json.dumps({'raw': raw}).encode()
+        send_req = urllib.request.Request(
+            'https://gmail.googleapis.com/gmail/v1/users/me/messages/send',
+            data=payload,
+            headers={
+                'Authorization': f'Bearer {access_token}',
+                'Content-Type':  'application/json',
+            },
+            method='POST',
+        )
+        with urllib.request.urlopen(send_req, timeout=15) as resp:
+            ok = resp.status == 200
             if ok:
-                log.warning('[AIOS Notify] SendGrid sent "%s" to %s', subject, recipients)
+                log.warning('[AIOS Notify] Gmail API sent "%s" to %s', subject, recipients)
             return ok
     except urllib.error.HTTPError as exc:
         body = exc.read(512).decode(errors='replace')
-        log.error('[AIOS Notify] SendGrid HTTP %s: %s', exc.code, body)
+        log.error('[AIOS Notify] Gmail API HTTP %s: %s', exc.code, body)
         return False
     except Exception as exc:
-        log.error('[AIOS Notify] SendGrid error: %s', exc)
+        log.error('[AIOS Notify] Gmail API error: %s', exc)
         return False
 
 
 def send(to: str | list, subject: str, html: str, text: str = ''):
-    """Send via SendGrid HTTP API. Falls back to console if unconfigured."""
+    """Send via Gmail API. Falls back to console if not yet authorized."""
     recipients = [to] if isinstance(to, str) else to
 
-    if _send_sendgrid(recipients, subject, html, text):
+    if _send_gmail_api(recipients, subject, html, text):
         return
 
     # Console fallback — always visible in Railway logs
