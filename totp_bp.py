@@ -4,6 +4,7 @@ Manages authenticator app (Google / Microsoft Authenticator) enrollment.
 Exposes helper functions used by the login flow in app.py.
 """
 import io
+import os
 import base64
 import logging
 import time
@@ -28,11 +29,19 @@ _TOTP_LOCKOUT    = 900   # 15 min
 
 
 # ── Public helpers (used by app.py login routes) ──────────────────────────────
+def _admin_totp_env_secret() -> str:
+    """Read admin TOTP secret from env var — persists across DB resets."""
+    return os.getenv('ADMIN_TOTP_SECRET', '')
+
+
 def totp_enabled(email: str) -> bool:
     """Returns True if the user has an active authenticator app registered."""
     try:
         email = email.strip().lower()
         if email in ALLOWED_EMAILS:
+            # Env var takes priority — survives Railway redeploys that wipe the DB
+            if _admin_totp_env_secret():
+                return True
             rec = AdminTOTP.query.filter_by(email=email).first()
             return bool(rec and rec.totp_enabled)
         user = TenantUser.query.filter_by(email=email, active=True).first()
@@ -46,6 +55,10 @@ def get_totp_secret(email: str) -> str | None:
     try:
         email = email.strip().lower()
         if email in ALLOWED_EMAILS:
+            # Env var takes priority — survives Railway redeploys that wipe the DB
+            env_secret = _admin_totp_env_secret()
+            if env_secret:
+                return env_secret
             rec = AdminTOTP.query.filter_by(email=email).first()
             if rec and rec.totp_secret_enc:
                 return decrypt_str('_admin', rec.totp_secret_enc)
@@ -68,6 +81,8 @@ def save_totp(email: str, secret: str, enabled: bool):
             db.add(rec)
         rec.totp_secret_enc = encrypt_str('_admin', secret) if secret else ''
         rec.totp_enabled    = enabled
+        if secret and enabled:
+            log.warning('[TOTP] IMPORTANT — add to Railway env vars to survive redeploys: ADMIN_TOTP_SECRET=%s', secret)
     else:
         user = TenantUser.query.filter_by(email=email, active=True).first()
         if not user:
