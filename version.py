@@ -1,4 +1,4 @@
-VERSION    = 'v3.2.6'
+VERSION    = 'v3.2.7'
 BUILD_DATE = '2026-04-30'
 
 CHANGES = [
@@ -26,4 +26,6 @@ CHANGES = [
     'check_authorized() — validates email/lockout without sending OTP (for TOTP flow)',
     # v3.2.6
     'SQLite busy_timeout=10000ms: prevents DB locked error on multi-worker gunicorn startup',
+    # v3.2.7
+    'Gunicorn: 1 worker + 4 threads — fixes OTP cross-worker memory split (in-memory _otp_store)',
 ]
