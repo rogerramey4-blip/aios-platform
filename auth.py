@@ -27,6 +27,7 @@ REQUEST_WINDOW   = 900
 LOCKOUT_DURATION = 900
 SESSION_TTL      = 28800
 
+_otp_store:     dict = {}   # in-memory fallback when DB unavailable
 _rate_store:    dict = {}
 _lockout_store: dict = {}
 
@@ -85,50 +86,68 @@ def request_otp(email: str) -> tuple:
         return False, 'Too many code requests. Please wait 15 minutes and try again.'
     code = ''.join(str(secrets.randbelow(10)) for _ in range(6))
     _rate_store.setdefault(email, []).append(time.time())
-    # Persist in DB — survives restarts and works across all workers/threads
+
+    # DB primary, memory fallback — email is sent regardless
     try:
-        from models import OTPCode, db
+        from models import OTPCode, db, Base, _engine
         from datetime import datetime, timedelta
+        Base.metadata.create_all(_engine)  # idempotent — creates table if missing
         OTPCode.query.filter_by(email=email).delete()
-        db.add(OTPCode(
-            email      = email,
-            code       = code,
-            expires_at = datetime.utcnow() + timedelta(seconds=OTP_TTL),
-            attempts   = 0,
-        ))
+        db.add(OTPCode(email=email, code=code,
+                       expires_at=datetime.utcnow() + timedelta(seconds=OTP_TTL)))
         db.commit()
+        log.info('[AIOS Auth] OTP stored in DB for %s', email)
     except Exception as exc:
-        log.error('[AIOS Auth] Failed to persist OTP for %s: %s', email, exc)
-        return False, 'Temporary error — please try again.'
-    _deliver(email, code)
+        log.warning('[AIOS Auth] DB store failed, using memory fallback (%s)', exc)
+        _otp_store[email] = {'code': code, 'expires': time.time() + OTP_TTL, 'attempts': 0}
+
+    _deliver(email, code)   # always send — never gated on DB success
     return True, code
 
 
 def verify_otp(email: str, submitted: str) -> tuple:
     email = email.strip().lower()
+
+    # ── DB path ───────────────────────────────────────────────────────────────
     try:
         from models import OTPCode, db
         from datetime import datetime
         rec = OTPCode.query.filter_by(email=email).first()
-        if not rec:
-            return False, 'No active code found. Please request a new one.'
-        if datetime.utcnow() > rec.expires_at:
+        if rec:
+            if datetime.utcnow() > rec.expires_at:
+                db.delete(rec); db.commit()
+                return False, 'Code has expired. Please request a new one.'
+            rec.attempts += 1
+            if rec.attempts > MAX_ATTEMPTS:
+                db.delete(rec); db.commit()
+                _lockout_store[email] = time.time() + LOCKOUT_DURATION
+                return False, 'Too many incorrect attempts. Account locked for 15 minutes.'
+            if submitted.strip() != rec.code:
+                db.commit()
+                left = max(MAX_ATTEMPTS - rec.attempts, 0)
+                return False, f'Incorrect code. {left} attempt(s) remaining.'
             db.delete(rec); db.commit()
-            return False, 'Code has expired. Please request a new one.'
-        rec.attempts += 1
-        if rec.attempts > MAX_ATTEMPTS:
-            db.delete(rec); db.commit()
-            _lockout_store[email] = time.time() + LOCKOUT_DURATION
-            return False, 'Too many incorrect attempts. Account locked for 15 minutes.'
-        if submitted.strip() != rec.code:
-            db.commit()
-            left = max(MAX_ATTEMPTS - rec.attempts, 0)
-            return False, f'Incorrect code. {left} attempt(s) remaining.'
-        db.delete(rec); db.commit()
-        return True, 'OK'
+            return True, 'OK'
     except Exception as exc:
-        log.error('[AIOS Auth] OTP verify error for %s: %s', email, exc)
-        return False, 'Temporary error — please try again.'
+        log.warning('[AIOS Auth] DB verify failed, trying memory fallback (%s)', exc)
+
+    # ── Memory fallback (single-worker, or when DB unavailable) ──────────────
+    rec = _otp_store.get(email)
+    if not rec:
+        return False, 'No active code found. Please request a new one.'
+    if time.time() > rec['expires']:
+        del _otp_store[email]
+        return False, 'Code has expired. Please request a new one.'
+    rec['attempts'] = rec.get('attempts', 0) + 1
+    if rec['attempts'] > MAX_ATTEMPTS:
+        del _otp_store[email]
+        _lockout_store[email] = time.time() + LOCKOUT_DURATION
+        return False, 'Too many incorrect attempts. Account locked for 15 minutes.'
+    if submitted.strip() != rec['code']:
+        left = max(MAX_ATTEMPTS - rec['attempts'], 0)
+        return False, f'Incorrect code. {left} attempt(s) remaining.'
+    del _otp_store[email]
+    return True, 'OK'
 
 
 def require_auth(f):
