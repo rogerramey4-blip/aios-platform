@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block main %}
+<div class="page-header">
+  <div class="page-breadcrumb"><a href="/{{ data.industry }}">Dashboard</a><span class="breadcrumb-sep">›</span><span>Use Cases</span></div>
+  <div class="page-title-row"><div class="page-title">⚡ AI Use Cases</div><div class="page-subtitle">{{ use_cases|selectattr('status','equalto','active')|list|length }} active · {{ use_cases|selectattr('status','equalto','available')|list|length }} available</div></div>
+</div>
+<div class="use-cases-grid">
+  {% for uc in use_cases %}
+  <div class="use-case-card">
+    <div class="uc-icon">{{ uc.icon }}</div>
+    <div class="uc-title">{{ uc.title }}</div>
+    <div class="uc-desc">{{ uc.desc }}</div>
+    <div class="uc-footer">
+      <span class="uc-cat">{{ uc.category }}</span>
+      <span class="uc-status {{ uc.status }}">{% if uc.status == 'active' %}● Active{% else %}○ Available{% endif %}</span>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

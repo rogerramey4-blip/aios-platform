@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block main %}
+<div class="page-header">
+  <div class="page-breadcrumb"><a href="/{{ data.industry }}">Dashboard</a><span class="breadcrumb-sep">›</span><span>Daily Brief</span></div>
+  <div class="page-title-row"><div class="page-title">📋 Daily Brief</div><div class="page-subtitle">{{ brief.generated_at }}</div></div>
+</div>
+
+<div class="metric-strip">
+  {% for m in brief.metrics %}
+  <div class="metric-tile">
+    <div class="metric-label">{{ m.label }}</div>
+    <div class="metric-value">{{ m.value }}</div>
+    <div class="metric-delta {% if m.up == True %}delta-up{% elif m.up == False %}delta-down{% else %}delta-flat{% endif %}">
+      {% if m.up == True %}▲ {% elif m.up == False %}▼ {% endif %}{{ m.delta }}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="brief-grid">
+  <div style="display:flex;flex-direction:column;gap:14px;">
+    <div class="panel">
+      <div class="panel-hdr"><div class="panel-title"><span class="panel-icon">🤖</span>AI SUMMARY</div><span class="brief-ts">{{ brief.generated_at }}</span></div>
+      <p class="brief-summary">{{ brief.summary }}</p>
+    </div>
+    <div class="panel">
+      <div class="panel-hdr"><div class="panel-title"><span class="panel-icon">⚡</span>KEY HIGHLIGHTS</div></div>
+      {% for h in brief.highlights %}
+      <div class="highlight-item hl-{{ h.type }}">
+        <span class="hl-icon">{% if h.type == 'win' %}✓{% elif h.type == 'risk' %}⚠{% else %}●{% endif %}</span>
+        <span class="hl-text">{{ h.text }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-hdr"><div class="panel-title"><span class="panel-icon">📅</span>TODAY'S SCHEDULE</div></div>
+    {% for e in brief.calendar %}
+    <div class="cal-item">
+      <div class="cal-time">{{ e.time }}</div>
+      <div class="cal-event">{{ e.event }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block main %}
+<div class="page-header">
+  <div class="page-breadcrumb"><a href="/{{ data.industry }}">Dashboard</a><span class="breadcrumb-sep">›</span><span>Agent Logs</span></div>
+  <div class="page-title-row"><div class="page-title">≡ Agent Activity Logs</div><div class="page-subtitle">Today · {{ logs|length }} entries</div></div>
+</div>
+<div class="panel" style="padding:0;overflow:hidden;">
+  <table class="data-table">
+    <thead><tr><th>Time</th><th>Agent</th><th>Action</th><th>Result</th><th>Detail</th><th>Duration</th></tr></thead>
+    <tbody>
+      {% for l in logs %}
+      <tr>
+        <td class="td-mono">{{ l.ts }}</td>
+        <td class="td-primary">{{ l.agent }}</td>
+        <td style="color:var(--text-secondary)">{{ l.action }}</td>
+        <td><span class="result-{{ l.result }}">{{ l.result|upper }}</span></td>
+        <td style="color:var(--text-secondary);font-size:11px;">{{ l.detail }}</td>
+        <td class="ms-badge">{{ l.ms }}ms</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block main %}
+<div class="page-header">
+  <div class="page-breadcrumb"><a href="/{{ data.industry }}">Dashboard</a><span class="breadcrumb-sep">›</span><span>Goals & Strategy</span></div>
+  <div class="page-title-row"><div class="page-title">🎯 Goals & Strategy</div><div class="page-subtitle">Q2 2026 targets</div></div>
+</div>
+
+<div class="goals-grid">
+  {% for g in data.goals %}
+  <div class="goal-card">
+    <div class="goal-card-title">{{ g.name }}</div>
+    <div class="goal-card-meta">Q2 Target · Updated daily by Goal Coach Agent</div>
+    <div class="goal-big-pct" style="color:{% if g.color == 'green' %}var(--green){% elif g.color == 'amber' %}var(--orange){% elif g.color == 'blue' %}var(--blue){% else %}var(--purple){% endif %}">{{ g.pct }}%</div>
+    <div class="goal-bar-lg"><div class="goal-bar-fill fill-{{ g.color }}" style="width:{{ g.pct }}%"></div></div>
+    <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);">
+      <span>Target: 100%</span>
+      <span>Gap: {{ 100 - g.pct }}%</span>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="two-col">
+  <div class="panel">
+    <div class="panel-hdr"><div class="panel-title"><span class="panel-icon">📊</span>PIPELINE CONTRIBUTION</div></div>
+    {% for p in data.pipeline %}
+    <div class="pipe-row">
+      <div class="pipe-name">{{ p.name }}</div>
+      <div class="pipe-track"><div class="pipe-fill" style="width:{{ p.pct }}%"></div></div>
+      <div class="pipe-val">{{ p.value }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="panel">
+    <div class="panel-hdr"><div class="panel-title"><span class="panel-icon">🤖</span>GOAL COACH AGENT</div></div>
+    <div style="font-size:12px;color:var(--text-secondary);line-height:1.7;margin-bottom:14px;">
+      Based on current trajectory, you are on pace to achieve <strong style="color:var(--gold)">3 of 4 goals</strong> by end of Q2.
+      The largest gap is in <strong>{{ data.goals|sort(attribute='pct')|first|attr('name') }}</strong> at {{ data.goals|sort(attribute='pct')|first|attr('pct') }}%.
+    </div>
+    <div style="background:rgba(227,179,65,.08);border:1px solid rgba(227,179,65,.2);border-radius:var(--radius);padding:12px;">
+      <div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--gold);margin-bottom:8px;">🤖 AI Recommendations</div>
+      <div style="font-size:12px;color:var(--text-secondary);line-height:1.8;">
+        1. Focus effort on closing top 3 pipeline opportunities this week<br>
+        2. Schedule check-in with at-risk accounts before month end<br>
+        3. Review agent performance logs to identify uptime issues<br>
+        4. Run weekly goal review on Fridays — 15 min cadence
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

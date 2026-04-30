@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+{% block main %}
+
+<div>
+  <div class="greeting">{{ greeting }}, {{ data.greeting_name }}</div>
+  <div class="greeting-date">{{ now }}</div>
+</div>
+
+<div class="kpi-row">
+  {% for k in data.kpis %}
+  <div class="kpi-card">
+    <div class="kpi-label">{{ k.label }}</div>
+    <div class="kpi-value{% if k.get('highlight') %} hl{% endif %}">{{ k.value }}</div>
+    <div class="kpi-sub">{{ k.sub }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="two-col">
+  <div class="panel">
+    <div class="panel-hdr"><div class="panel-title"><span class="panel-icon">⚡</span>TODAY'S PRIORITY ACTIONS</div></div>
+    {% for a in data.actions %}
+    <div class="action">
+      <div class="action-left">
+        <div class="dot dot-{{ a.dot }}"></div>
+        <div class="action-text">{{ a.text }}</div>
+      </div>
+      <div class="badge b-{{ a.btype }}">{{ a.badge }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="panel">
+    <div class="panel-hdr">
+      <div class="panel-title"><span class="panel-icon">📡</span>INDUSTRY INTELLIGENCE</div>
+      <a href="/{{ data.industry }}/brief" class="panel-link">→ Daily Brief</a>
+    </div>
+    {% for alert in data.alerts %}
+    <div class="alert-item">
+      <div><span class="alert-cat c-{{ alert.ctype }}">{{ alert.cat }}</span></div>
+      <div class="alert-headline">{{ alert.headline }}</div>
+      <div class="alert-source">{{ alert.source }} · <span class="alert-rel">{{ alert.rel }}</span></div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="three-col">
+  <div class="panel">
+    <div class="panel-hdr"><div class="panel-title"><span class="panel-icon">🎯</span>GOALS PROGRESS</div><a href="/{{ data.industry }}/goals" class="panel-link">Detail →</a></div>
+    {% for g in data.goals %}
+    <div class="goal">
+      <div class="goal-hdr"><span class="goal-name">{{ g.name }}</span><span class="goal-pct {{ g.color }}">{{ g.pct }}%</span></div>
+      <div class="bar"><div class="bar-fill fill-{{ g.color }}" style="width:{{ g.pct }}%"></div></div>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="panel">
+    <div class="panel-hdr"><div class="panel-title"><span class="panel-icon">📊</span>{{ data.pipeline_label_kpi }}</div></div>
+    {% for p in data.pipeline %}
+    <div class="pipe-row">
+      <div class="pipe-name">{{ p.name }}</div>
+      <div class="pipe-track"><div class="pipe-fill" style="width:{{ p.pct }}%"></div></div>
+      <div class="pipe-val">{{ p.value }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="panel">
+    <div class="panel-hdr"><div class="panel-title"><span class="panel-icon">🤖</span>AI AGENT ACTIVITY</div><a href="/{{ data.industry }}/agents" class="panel-link">All Agents →</a></div>
+    {% for ag in data.agents %}
+    <div class="agent-item">
+      <div class="agent-dot {{ ag.status }}"></div>
+      <div class="agent-info">
+        <div class="agent-name">{{ ag.name }}</div>
+        <div class="agent-detail">{{ ag.detail }}</div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+{% if data.extra_panes == 'agency' %}
+<div class="panel">
+  <div class="panel-hdr">
+    <div class="panel-title"><span class="panel-icon">📋</span>CLIENT HEALTH SCORECARD</div>
+    <a href="/agency/pipeline" class="panel-link">View All →</a>
+  </div>
+  <table class="health-table">
+    <thead><tr><th>Client</th><th>Engagement</th><th>Agent Uptime</th><th>Delivery</th><th>Payment</th><th>Score</th></tr></thead>
+    <tbody>
+      {% for c in data.client_health %}
+      <tr>
+        <td>{{ c.name }}</td>
+        <td><span class="hdot hdot-{{ c.engagement }}"></span></td>
+        <td><span class="hdot hdot-{{ c.uptime }}"></span></td>
+        <td><span class="hdot hdot-{{ c.delivery }}"></span></td>
+        <td><span class="hdot hdot-{{ c.payment }}"></span></td>
+        <td><span class="score{%- if c.score >= 80 %} score-hi{%- elif c.score >= 60 %} score-mid{%- else %} score-lo{%- endif %}">{{ c.score }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% elif data.extra_panes == 'medical' %}
+<div class="two-col-eq">
+  <div class="panel">
+    <div class="panel-hdr"><div class="panel-title"><span class="panel-icon">📅</span>SCHEDULE — TODAY</div><span class="panel-link" style="color:var(--green)">● 4 OPEN</span></div>
+    <div class="heatmap">
+      <div class="hm-col-hdr"></div>
+      <div class="hm-col-hdr">Dr. Chen</div><div class="hm-col-hdr">Dr. Patel</div>
+      <div class="hm-col-hdr">Dr. Torres</div><div class="hm-col-hdr">Dr. Nguyen</div>
+      {% for row in data.schedule_heatmap %}
+      <div class="hm-time">{{ row.time }}</div>
+      {% for slot in row.slots %}<div class="hm-cell hm-{{ slot }}"></div>{% endfor %}
+      {% endfor %}
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-hdr"><div class="panel-title"><span class="panel-icon">💰</span>A/R AGING BUCKETS</div></div>
+    {% for row in data.ar_aging %}
+    <div class="ar-row">
+      <div class="ar-bucket">{{ row.bucket }}</div>
+      <div class="ar-track"><div class="ar-fill {{ row.color }}" style="width:{{ row.pct }}%"></div></div>
+      <div class="ar-val">{{ row.amount }}</div>
+      <div class="ar-pct">{{ row.pct }}%</div>
+    </div>
+    {% endfor %}
+    <div class="divider"></div>
+    <div style="display:flex;justify-content:space-between;font-size:12px;">
+      <span style="color:var(--text-secondary)">Total A/R Outstanding</span>
+      <span style="font-weight:800;">$51,500</span>
+    </div>
+  </div>
+</div>
+
+{% elif data.extra_panes == 'legal' %}
+<div class="panel">
+  <div class="panel-hdr"><div class="panel-title"><span class="panel-icon">⏰</span>STATUTE OF LIMITATIONS WATCHLIST</div><a href="/legal/pipeline" class="panel-link">All Cases →</a></div>
+  {% for s in data.sol_watchlist %}
+  <div class="sol-row">
+    <div class="sol-case">{{ s.case }}</div>
+    <span class="sol-type">{{ s.type }}</span>
+    <div class="sol-date">{{ s.sol_date }}</div>
+    <div class="sol-days {{ s.urgency }}">{{ s.days_left }}d left</div>
+  </div>
+  {% endfor %}
+</div>
+
+{% elif data.extra_panes == 'construction' %}
+<div class="panel">
+  <div class="panel-hdr"><div class="panel-title"><span class="panel-icon">🏗️</span>PROJECT HEALTH MATRIX</div><a href="/construction/pipeline" class="panel-link">All Projects →</a></div>
+  <table class="health-table">
+    <thead><tr><th>Project</th><th>% Complete</th><th>Budget Var.</th><th>Schedule</th><th>Risk</th><th>PM</th></tr></thead>
+    <tbody>
+      {% for p in data.project_health %}
+      <tr>
+        <td>{{ p.name }}</td>
+        <td>{{ p.pct }}%</td>
+        <td style="color:{% if p.budget_var.startswith('+') %}var(--orange){% else %}var(--green){% endif %}">{{ p.budget_var }}</td>
+        <td>{{ p.schedule_var }}</td>
+        <td><span class="risk-dot {{ p.risk }}" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:{% if p.risk == 'red' %}var(--red){% elif p.risk == 'amber' %}var(--orange){% else %}var(--green){% endif %}"></span></td>
+        <td style="color:var(--text-secondary)">{{ p.pm }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% elif data.extra_panes == 'brokerage' %}
+<div class="panel">
+  <div class="panel-hdr"><div class="panel-title"><span class="panel-icon">🏆</span>AGENT LEADERBOARD — MTD</div><a href="/brokerage/pipeline" class="panel-link">All Listings →</a></div>
+  <table class="health-table">
+    <thead><tr><th>Agent</th><th>Closings MTD</th><th>GCI</th><th>Pipeline</th><th>Avg DOM</th></tr></thead>
+    <tbody>
+      {% for a in data.agent_leaderboard %}
+      <tr>
+        <td>{{ a.name }}</td>
+        <td style="text-align:center;font-weight:700;color:{% if a.closings > 4 %}var(--green){% elif a.closings > 0 %}var(--text-primary){% else %}var(--red){% endif %}">{{ a.closings }}</td>
+        <td style="font-weight:600;font-variant-numeric:tabular-nums;">{{ a.gci }}</td>
+        <td style="color:var(--text-secondary)">{{ a.pipeline }}</td>
+        <td style="font-variant-numeric:tabular-nums;color:var(--text-secondary)">{% if a.dom %}{{ a.dom }}d{% else %}<span style="color:var(--red)">—</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block main %}
+<div class="page-header">
+  <div class="page-breadcrumb"><a href="/{{ data.industry }}">Dashboard</a><span class="breadcrumb-sep">›</span><span>Deploy New Agent</span></div>
+  <div class="page-title-row"><div class="page-title">+ Deploy New Agent</div></div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;">
+  <div class="panel">
+    <div class="panel-hdr"><div class="panel-title"><span class="panel-icon">1</span>SELECT AGENT TYPE</div></div>
+    <div class="agent-type-grid" id="type-grid">
+      <div class="agent-type-card selected" onclick="selectType(this,'Monitor')"><div class="agent-type-icon">👁️</div><div class="agent-type-name">Monitor</div></div>
+      <div class="agent-type-card" onclick="selectType(this,'Generator')"><div class="agent-type-icon">✍️</div><div class="agent-type-name">Generator</div></div>
+      <div class="agent-type-card" onclick="selectType(this,'Analyst')"><div class="agent-type-icon">📊</div><div class="agent-type-name">Analyst</div></div>
+      <div class="agent-type-card" onclick="selectType(this,'Outreach')"><div class="agent-type-icon">📣</div><div class="agent-type-name">Outreach</div></div>
+      <div class="agent-type-card" onclick="selectType(this,'Workflow')"><div class="agent-type-icon">⚙️</div><div class="agent-type-name">Workflow</div></div>
+      <div class="agent-type-card" onclick="selectType(this,'Reporter')"><div class="agent-type-icon">📋</div><div class="agent-type-name">Reporter</div></div>
+    </div>
+    <div style="margin-top:14px;display:flex;flex-direction:column;gap:10px;">
+      <div class="form-field">
+        <label class="form-label">Agent Name</label>
+        <input class="form-input" type="text" placeholder="e.g. Client Renewal Monitor">
+      </div>
+      <div class="form-field">
+        <label class="form-label">Description</label>
+        <textarea class="form-input" placeholder="What should this agent do?"></textarea>
+      </div>
+      <div class="form-field">
+        <label class="form-label">Run Schedule</label>
+        <input class="form-input" type="text" placeholder="e.g. Every 4 hours / Daily at 7AM / On trigger">
+      </div>
+    </div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:14px;">
+    <div class="panel">
+      <div class="panel-hdr"><div class="panel-title"><span class="panel-icon">2</span>CONFIGURE DATA SOURCES</div></div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        {% for src in ['CRM / Client Database','Email Inbox','External API','Imported Table','Manual Trigger'] %}
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:12px;color:var(--text-secondary);padding:6px 0;">
+          <input type="checkbox" style="accent-color:var(--gold);width:14px;height:14px;"> {{ src }}
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-hdr"><div class="panel-title"><span class="panel-icon">3</span>NOTIFICATION SETTINGS</div></div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        {% for n in ['Email alert on error','Dashboard notification','Daily digest summary','Slack (if connected)'] %}
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:12px;color:var(--text-secondary);padding:6px 0;">
+          <input type="checkbox" style="accent-color:var(--gold);width:14px;height:14px;" {% if loop.index <= 2 %}checked{% endif %}> {{ n }}
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+    <button class="generate-btn" style="margin:0;" onclick="alert('Agent deployment queued. It will appear in Agent Overview within 30 seconds.')">🚀 Deploy Agent</button>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function selectType(card,type){
+  document.querySelectorAll('.agent-type-card').forEach(c=>c.classList.remove('selected'));
+  card.classList.add('selected');
+}
+</script>
+{% endblock %}

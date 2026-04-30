@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block main %}
+<div class="page-header">
+  <div class="page-breadcrumb"><a href="/{{ data.industry }}">Dashboard</a><span class="breadcrumb-sep">›</span><span>AI Tools</span><span class="breadcrumb-sep">›</span><span>{{ tool.title }}</span></div>
+  <div class="page-title-row"><div class="page-title">{{ tool.icon }} {{ tool.title }}</div></div>
+</div>
+<div class="tool-layout">
+  <div class="panel">
+    <p class="tool-desc">{{ tool.desc }}</p>
+    <form id="tool-form" style="display:flex;flex-direction:column;gap:12px;">
+      {% for f in tool.fields %}
+      <div class="form-field">
+        <label class="form-label" for="{{ f.id }}">{{ f.label }}</label>
+        {% if f.type == 'textarea' %}
+        <textarea class="form-input" id="{{ f.id }}" name="{{ f.id }}" placeholder="{{ f.placeholder }}"></textarea>
+        {% else %}
+        <input class="form-input" type="text" id="{{ f.id }}" name="{{ f.id }}" placeholder="{{ f.placeholder }}">
+        {% endif %}
+      </div>
+      {% endfor %}
+      <button class="generate-btn" type="button" onclick="showOutput()">🤖 Generate with AI →</button>
+    </form>
+  </div>
+  <div class="tool-output" id="tool-output">
+    <div class="tool-output-hdr">
+      <span class="tool-output-title">🤖 AI Output</span>
+      <span style="font-size:11px;color:var(--text-muted)" id="output-status">Fill in the fields and click Generate</span>
+    </div>
+    <div class="tool-output-body">
+      <pre class="sample-output" id="output-text" style="opacity:.35">{{ tool.get('sample_output','Sample output will appear here.') }}</pre>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function showOutput(){
+  document.getElementById('output-status').textContent='Generated just now · Demo output';
+  const el=document.getElementById('output-text');
+  el.style.opacity=1;
+  el.style.animation='fadeIn .4s ease';
+}
+</script>
+{% endblock %}

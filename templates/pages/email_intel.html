@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block main %}
+<div class="page-header">
+  <div class="page-breadcrumb"><a href="/{{ data.industry }}">Dashboard</a><span class="breadcrumb-sep">›</span><span>Email Intelligence</span></div>
+  <div class="page-title-row">
+    <div class="page-title">✉ Email Intelligence</div>
+    <div class="page-subtitle">{{ emails|selectattr('read','equalto',False)|list|length }} unread · AI-triaged</div>
+  </div>
+</div>
+
+<div class="email-layout">
+  <div class="email-list" id="email-list">
+    {% for e in emails %}
+    <div class="email-item {% if not e.read %}email-unread{% endif %} {% if e.priority == 'urgent' %}email-urgent{% endif %}" onclick="showEmail({{ loop.index0 }})">
+      <div class="email-meta">
+        <span class="email-from">{{ e.from }}</span>
+        <span class="email-company">{{ e.company }}</span>
+        <span class="email-time">{{ e.time }}</span>
+      </div>
+      <div class="email-subject">{{ e.subject }}</div>
+      <div class="email-preview">{{ e.preview }}</div>
+      <div class="email-footer-row">
+        <span class="priority-tag p-{{ e.priority }}">{{ e.priority|upper }}</span>
+        <span class="ai-action-chip">🤖 {{ e.ai_action }}</span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="email-detail" id="email-detail">
+    <div class="email-detail-empty">
+      <div style="font-size:32px;margin-bottom:12px;">✉</div>
+      <div style="font-size:14px;font-weight:600;margin-bottom:6px;">Select an email to view</div>
+      <div style="font-size:12px;color:var(--text-muted)">AI-suggested actions appear here</div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+const EMAILS={{ emails|tojson }};
+function showEmail(idx){
+  const e=EMAILS[idx];
+  document.querySelectorAll('.email-item')[idx].classList.remove('email-unread');
+  const pc={'urgent':'p-urgent','respond':'p-respond','opportunity':'p-opportunity','low':'p-low'}[e.priority]||'p-low';
+  document.getElementById('email-detail').innerHTML=`
+    <div class="email-detail-inner">
+      <div class="email-detail-hdr">
+        <div><div class="email-detail-subject">${e.subject}</div><div class="email-detail-from">${e.from} · <span style="color:var(--text-muted)">${e.company}</span> · ${e.time}</div></div>
+        <span class="priority-tag ${pc}">${e.priority.toUpperCase()}</span>
+      </div>
+      <div class="email-detail-body">${e.preview}</div>
+      <div class="email-detail-ai">
+        <div class="email-detail-ai-hdr"><span style="color:var(--gold);font-weight:700;">🤖 AI Recommendation</span></div>
+        <div class="email-detail-ai-action">${e.ai_action}</div>
+        <div class="email-detail-actions">
+          <button class="email-btn email-btn-primary">Execute Action</button>
+          <button class="email-btn">Draft Reply</button>
+          <button class="email-btn">Archive</button>
+        </div>
+      </div>
+    </div>`;
+}
+const first=document.querySelector('.email-unread');
+if(first)first.click();else if(EMAILS.length)showEmail(0);
+</script>
+{% endblock %}

@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block main %}
+<div class="page-header">
+  <div class="page-breadcrumb"><a href="/{{ data.industry }}">Dashboard</a><span class="breadcrumb-sep">›</span><span>Settings</span></div>
+  <div class="page-title-row"><div class="page-title">◈ {% if setting == 'team' %}Team & Roles{% else %}Integrations{% endif %}</div></div>
+</div>
+
+{% if setting == 'integrations' %}
+<div class="settings-grid">
+  {% for intg in [
+    {'name': 'Email (SMTP/IMAP)', 'desc': 'Connect your email for AI triage and automated outreach.', 'status': 'connected'},
+    {'name': 'Google Calendar',   'desc': 'Sync calendar events with Daily Brief and scheduling agents.', 'status': 'not_connected'},
+    {'name': 'Slack',             'desc': 'Send agent alerts and daily briefs to Slack channels.', 'status': 'not_connected'},
+    {'name': 'Zapier / Make',     'desc': 'Trigger AIOS agents from external automation workflows.', 'status': 'not_connected'},
+    {'name': 'Stripe / QuickBooks','desc': 'Sync billing data for revenue tracking and reporting.', 'status': 'not_connected'},
+    {'name': 'Custom Webhook',    'desc': 'Send data to or receive data from any external system.', 'status': 'not_connected'},
+  ] %}
+  <div class="settings-card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+      <div class="settings-card-title">{{ intg.name }}</div>
+      <span style="font-size:10px;font-weight:700;color:{% if intg.status == 'connected' %}var(--green){% else %}var(--text-muted){% endif %}">
+        {% if intg.status == 'connected' %}● Connected{% else %}○ Not connected{% endif %}
+      </span>
+    </div>
+    <div class="settings-card-desc">{{ intg.desc }}</div>
+    <button class="settings-btn">{% if intg.status == 'connected' %}Configure{% else %}Connect{% endif %}</button>
+  </div>
+  {% endfor %}
+</div>
+
+{% else %}
+<div class="settings-grid">
+  {% for member in [
+    {'name': 'Roger Ramey',    'email': 'roger@aievolutionservices.com',    'role': 'Admin', 'status': 'active'},
+    {'name': 'Kevin Smith',    'email': 'kevin@aievolutionservices.com',    'role': 'Manager','status': 'active'},
+    {'name': 'Charlene Davis', 'email': 'charlene@aievolutionservices.com', 'role': 'Viewer', 'status': 'active'},
+  ] %}
+  <div class="settings-card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+      <div class="settings-card-title">{{ member.name }}</div>
+      <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:3px;
+        background:{% if member.role == 'Admin' %}rgba(227,179,65,.15){% elif member.role == 'Manager' %}rgba(56,139,253,.15){% else %}var(--bg-tertiary){% endif %};
+        color:{% if member.role == 'Admin' %}var(--gold){% elif member.role == 'Manager' %}var(--blue){% else %}var(--text-muted){% endif %};">
+        {{ member.role }}
+      </span>
+    </div>
+    <div class="settings-card-desc">{{ member.email }}</div>
+    <button class="settings-btn">Manage Access</button>
+  </div>
+  {% endfor %}
+  <div class="settings-card" style="border-style:dashed;display:flex;align-items:center;justify-content:center;min-height:100px;">
+    <button class="settings-btn" style="border-style:dashed;">+ Invite Team Member</button>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

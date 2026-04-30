@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block main %}
+<div class="page-header">
+  <div class="page-breadcrumb"><a href="/{{ data.industry }}">Dashboard</a><span class="breadcrumb-sep">›</span><span>{{ data.pipeline_label }}</span></div>
+  <div class="page-title-row"><div class="page-title">⬡ {{ data.pipeline_label }}</div><div class="page-subtitle">{{ rows|length }} records</div></div>
+</div>
+
+{% if data.industry == 'agency' %}
+<div class="filter-bar">
+  <button class="filter-btn active" onclick="filt(this,'all')">All</button>
+  <button class="filter-btn" onclick="filt(this,'active')">Active</button>
+  <button class="filter-btn" onclick="filt(this,'at_risk')">At Risk</button>
+  <button class="filter-btn" onclick="filt(this,'onboarding')">Onboarding</button>
+</div>
+<div class="panel" style="padding:0;overflow:hidden;">
+  <table class="data-table" id="tbl">
+    <thead><tr><th>Client</th><th>Tier</th><th>MRR</th><th>Stage</th><th>Health Score</th><th>PM</th><th>Next Action</th><th>Due</th></tr></thead>
+    <tbody>
+      {% for p in rows %}
+      <tr data-stage="{{ p.stage }}">
+        <td class="td-primary">{{ p.name }}</td>
+        <td><span class="tier-badge tier-{{ p.tier.lower() }}">{{ p.tier }}</span></td>
+        <td class="td-num">{{ p.mrr }}</td>
+        <td><span class="stage-badge stage-{{ p.stage }}">{{ p.stage|replace('_',' ')|title }}</span></td>
+        <td>{% if p.score is not none %}<span class="score{% if p.score >= 80 %} score-hi{% elif p.score >= 60 %} score-mid{% else %} score-lo{% endif %}">{{ p.score }}</span>{% else %}<span style="color:var(--text-muted);font-size:11px">Onboarding</span>{% endif %}</td>
+        <td style="color:var(--text-secondary)">{{ p.pm }}</td>
+        <td>{{ p.next }}</td>
+        <td><span class="due-badge {% if p.due=='Today' %}due-today{% elif p.due=='Tomorrow' %}due-tomorrow{% endif %}">{{ p.due }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% elif data.industry == 'legal' %}
+<div class="panel" style="padding:0;overflow:hidden;">
+  <table class="data-table">
+    <thead><tr><th>Matter</th><th>Type</th><th>Est. Value</th><th>Stage</th><th>Attorney</th><th>Next Action</th><th>Due</th></tr></thead>
+    <tbody>
+      {% for p in rows %}
+      <tr>
+        <td class="td-primary">{{ p.name }}</td>
+        <td><span class="tier-badge tier-growth">{{ p.type }}</span></td>
+        <td class="td-num">{{ p.value }}</td>
+        <td><span class="stage-badge stage-active">{{ p.stage|title }}</span></td>
+        <td style="color:var(--text-secondary)">{{ p.attorney }}</td>
+        <td>{{ p.next }}</td>
+        <td><span class="due-badge {% if p.due=='Today' %}due-today{% elif p.due=='Tomorrow' %}due-tomorrow{% endif %}">{{ p.due }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% elif data.industry == 'construction' %}
+<div class="panel" style="padding:0;overflow:hidden;">
+  <table class="data-table">
+    <thead><tr><th>Project</th><th>Type</th><th>Budget</th><th>% Complete</th><th>Budget Var.</th><th>PM</th><th>Next Action</th><th>Due</th></tr></thead>
+    <tbody>
+      {% for p in rows %}
+      <tr>
+        <td class="td-primary">{{ p.name }}</td>
+        <td><span class="tier-badge tier-starter">{{ p.type }}</span></td>
+        <td class="td-num">{{ p.budget }}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="width:60px;height:5px;background:var(--bg-tertiary);border-radius:3px;overflow:hidden;">
+              <div style="width:{{ p.pct }}%;height:100%;background:var(--gold);border-radius:3px;"></div>
+            </div>
+            <span style="font-size:11px;font-variant-numeric:tabular-nums;">{{ p.pct }}%</span>
+          </div>
+        </td>
+        <td style="color:{% if p.variance.startswith('+') and p.variance != '+0.0%' %}var(--orange){% else %}var(--green){% endif %};font-weight:600;">{{ p.budget_var }}</td>
+        <td style="color:var(--text-secondary)">{{ p.pm }}</td>
+        <td>{{ p.next }}</td>
+        <td><span class="due-badge">{{ p.due }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% elif data.industry == 'medical' %}
+<div class="filter-bar">
+  <button class="filter-btn active" onclick="filt(this,'all')">All</button>
+  <button class="filter-btn" onclick="filt(this,'checked_in')">Checked In</button>
+  <button class="filter-btn" onclick="filt(this,'waiting')">Waiting</button>
+  <button class="filter-btn" onclick="filt(this,'confirmed')">Confirmed</button>
+  <button class="filter-btn" onclick="filt(this,'scheduled')">Scheduled</button>
+</div>
+<div class="panel" style="padding:0;overflow:hidden;">
+  <table class="data-table" id="tbl">
+    <thead><tr><th>Time</th><th>Patient</th><th>Visit Type</th><th>Provider</th><th>Insurance</th><th>Status</th><th>Flags</th></tr></thead>
+    <tbody>
+      {% for p in rows %}
+      <tr data-stage="{{ p.status }}">
+        <td class="td-mono">{{ p.time }}</td>
+        <td class="td-primary">{{ p.name }}</td>
+        <td style="color:var(--text-secondary)">{{ p.type }}</td>
+        <td style="color:var(--text-secondary)">{{ p.provider }}</td>
+        <td>{% if p.insurance %}<span class="ins-badge">{{ p.insurance }}</span>{% endif %}</td>
+        <td><span class="pt-status pt-{{ p.status }}">{{ p.status|replace('_',' ')|title }}</span></td>
+        <td>{% if p.flag %}<span class="flag-tag">⚠ {{ p.flag }}</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% elif data.industry == 'brokerage' %}
+<div class="panel" style="padding:0;overflow:hidden;">
+  <table class="data-table">
+    <thead><tr><th>Address</th><th>List Price</th><th>Status</th><th>Agent</th><th>DOM</th><th>Offers</th><th>Close Date</th></tr></thead>
+    <tbody>
+      {% for p in rows %}
+      <tr>
+        <td class="td-primary">{{ p.address }}</td>
+        <td class="td-num">{{ p.price }}</td>
+        <td><span class="listing-status listing-{{ p.status }}">{{ p.status|replace('_',' ')|title }}</span></td>
+        <td style="color:var(--text-secondary)">{{ p.agent }}</td>
+        <td class="td-mono" style="color:{% if p.dom > 60 %}var(--orange){% elif p.dom > 30 %}var(--text-primary){% else %}var(--green){% endif %}">{{ p.dom }}d</td>
+        <td style="text-align:center;font-weight:700;">{{ p.offers }}</td>
+        <td style="color:var(--text-secondary)">{{ p.close or '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% endblock %}
+{% block scripts %}
+<script>
+function filt(btn,stage){
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('#tbl tbody tr').forEach(r=>{r.style.display=(stage==='all'||r.dataset.stage===stage)?'':'none';});
+}
+</script>
+{% endblock %}

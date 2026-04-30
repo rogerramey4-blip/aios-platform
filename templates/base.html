@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AIOS — {{ data.firm_name }}</title>
+  <script>(function(){var t=localStorage.getItem('aios-theme')||'dark';document.documentElement.setAttribute('data-theme',t);})();</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/aios.css">
+  <link rel="stylesheet" href="/static/css/subpages.css">
+  {% block head %}{% endblock %}
+</head>
+<body data-industry="{{ data.industry }}">
+<div class="layout">
+
+  <header class="header">
+    <div class="header-brand">{{ data.firm_name }}<span class="sub">{{ data.firm_sub }}</span></div>
+    <div class="header-sep"></div>
+    <div class="header-badge">⚡ AIOS Command Center</div>
+    <div class="header-badge"><span class="dot"></span>{{ data.user_name }}, {{ data.user_title }}</div>
+    <div class="header-spacer"></div>
+    <div class="clock" id="clock"></div>
+    <button class="theme-btn" id="theme-btn" onclick="toggleTheme()">☀ Light</button>
+    <div class="header-sep"></div>
+    <a href="/" style="font-size:11px;color:var(--text-muted);padding:0 6px;">← Industries</a>
+    <a href="/logout" style="font-size:11px;color:var(--text-muted);padding:0 6px;">Sign Out</a>
+  </header>
+
+  <aside class="sidebar">
+    <nav class="sidebar-nav">
+      {% for section in data.nav %}
+      <div class="nav-section">
+        <div class="nav-section-title">{{ section.section }}</div>
+        {% for item in section.links %}
+        <a href="{{ item.href }}" class="nav-item{% if item.get('active') %} active{% endif %}">
+          <span class="nav-icon">{{ item.icon }}</span>
+          <span>{{ item.label }}</span>
+          {% if item.get('badge') %}<span class="nav-badge">{{ item.badge }}</span>{% endif %}
+        </a>
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-footer-label">Powered by</div>
+      <div class="sidebar-footer-brand">AI Evolution Services</div>
+    </div>
+  </aside>
+
+  <main class="main">
+    {% block main %}{% endblock %}
+  </main>
+
+</div>
+<script src="/static/js/aios.js"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

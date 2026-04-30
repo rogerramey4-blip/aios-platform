@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block main %}
+<div class="page-header">
+  <div class="page-breadcrumb"><a href="/{{ data.industry }}">Dashboard</a><span class="breadcrumb-sep">›</span><span>Agent Overview</span></div>
+  <div class="page-title-row"><div class="page-title">🤖 AI Agent Overview</div><div class="page-subtitle">{{ agents_detail|selectattr('status','equalto','active')|list|length }} active · {{ agents_detail|selectattr('status','equalto','idle')|list|length }} idle</div></div>
+</div>
+
+<div class="agents-grid">
+  {% for ag in agents_detail %}
+  <div class="agent-card">
+    <div class="agent-card-hdr">
+      <div>
+        <div class="agent-card-name">{{ ag.name }}</div>
+        <div class="agent-card-type">{{ ag.type }}</div>
+      </div>
+      <div class="agent-card-status {{ ag.status }}">
+        {% if ag.status == 'active' %}● Active{% else %}○ Idle{% endif %}
+      </div>
+    </div>
+    <div class="agent-card-desc">{{ ag.desc }}</div>
+    <div class="agent-stats">
+      <div class="agent-stat">
+        <div class="agent-stat-val">{{ ag.uptime }}</div>
+        <div class="agent-stat-lbl">Uptime</div>
+      </div>
+      <div class="agent-stat">
+        <div class="agent-stat-val">{{ ag.tasks }}</div>
+        <div class="agent-stat-lbl">Tasks Run</div>
+      </div>
+      <div class="agent-stat">
+        <div class="agent-stat-val" style="color:{% if ag.errors > 5 %}var(--orange){% elif ag.errors > 0 %}var(--text-primary){% else %}var(--green){% endif %}">{{ ag.errors }}</div>
+        <div class="agent-stat-lbl">Errors</div>
+      </div>
+      <div class="agent-stat" style="margin-left:auto;">
+        <div class="agent-stat-val" style="font-size:11px;font-weight:400;color:var(--text-muted)">{{ ag.last_run }}</div>
+        <div class="agent-stat-lbl">Last Run</div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
