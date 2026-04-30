@@ -241,5 +241,15 @@ def secrets_token():
     return secrets.token_hex(32)
 
 
+class OTPCode(Base):
+    """Persisted OTP codes — survives restarts and works across workers."""
+    __tablename__ = 'otp_codes'
+    id         = Column(Integer, primary_key=True)
+    email      = Column(String(320), nullable=False, index=True)
+    code       = Column(String(6),   nullable=False)
+    expires_at = Column(DateTime,    nullable=False)
+    attempts   = Column(Integer,     default=0)
+
+
 def init_db():
     Base.metadata.create_all(_engine)

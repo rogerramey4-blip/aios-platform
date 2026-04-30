@@ -80,26 +80,54 @@ def send(to: str | list, subject: str, html: str, text: str = ''):
     log.warning('[AIOS Notify] Console fallback used for %s — check logs for code', recipients)
 
 
+def _resend_from_addr() -> str:
+    """Return the best available from-address for Resend."""
+    custom = os.getenv('RESEND_FROM', '').strip()
+    if custom and '@' in custom:
+        return custom if '<' in custom else f'AIOS <{custom}>'
+    return 'AIOS <onboarding@resend.dev>'
+
+
+def _unsuppress(emails: list, api_key: str):
+    """Remove addresses from Resend suppression list so delivery succeeds."""
+    import urllib.request as _ur
+    for addr in emails:
+        try:
+            req = _ur.Request(
+                f'https://api.resend.com/emails/suppress/{addr}',
+                method='DELETE',
+                headers={'Authorization': f'Bearer {api_key}'},
+            )
+            _ur.urlopen(req, timeout=5)
+            log.info('[AIOS Notify] Removed %s from Resend suppression list', addr)
+        except Exception as exc:
+            log.debug('[AIOS Notify] Unsuppress %s: %s', addr, exc)
+
+
 def _send_resend(recipients: list, subject: str, html: str, text: str, api_key: str) -> tuple:
-    """Send via Resend HTTPS API. Returns (success: bool, error: str)."""
-    try:
-        import resend as _resend
-        _resend.api_key = api_key
-        custom_from = os.getenv('RESEND_FROM', '').strip()
-        if custom_from and '@' in custom_from:
-            from_addr = custom_from if '<' in custom_from else f'AIOS <{custom_from}>'
-        else:
-            from_addr = 'AIOS <onboarding@resend.dev>'
-        log.info('[AIOS Notify] Resend from=%s to=%s', from_addr, recipients)
-        params = {'from': from_addr, 'to': recipients, 'subject': subject, 'html': html}
-        if text:
-            params['text'] = text
-        _resend.Emails.send(params)
-        log.info('[AIOS Notify] Resend delivered "%s" to %s', subject, recipients)
-        return True, ''
-    except Exception as exc:
-        log.error('[AIOS Notify] Resend error: %s', exc)
-        return False, str(exc)
+    """Send via Resend HTTPS API. Returns (success: bool, error: str).
+    Auto-removes suppressed addresses and retries once."""
+    import resend as _resend
+    _resend.api_key = api_key
+    from_addr = _resend_from_addr()
+    params = {'from': from_addr, 'to': recipients, 'subject': subject, 'html': html}
+    if text:
+        params['text'] = text
+
+    for attempt in (1, 2):
+        try:
+            _resend.Emails.send(params)
+            log.info('[AIOS Notify] Resend delivered "%s" to %s', subject, recipients)
+            return True, ''
+        except Exception as exc:
+            err = str(exc)
+            log.error('[AIOS Notify] Resend error (attempt %d): %s', attempt, err)
+            if attempt == 1 and 'suppression' in err.lower():
+                log.warning('[AIOS Notify] Suppression detected — removing and retrying')
+                _unsuppress(recipients, api_key)
+                continue
+            return False, err
+    return False, 'send failed after unsuppress retry'
 
 
 _CONFLICT_HTML = """<!DOCTYPE html>

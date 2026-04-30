@@ -1,4 +1,4 @@
-VERSION    = 'v3.2.8'
+VERSION    = 'v3.2.9'
 BUILD_DATE = '2026-04-30'
 
 CHANGES = [
@@ -31,4 +31,7 @@ CHANGES = [
     # v3.2.8
     'Always log OTP code via log.warning() in _deliver() — visible in Railway logs even if email fails',
     'Surface Resend suppression/error at log.error level for immediate diagnosis',
+    # v3.2.9
+    'OTP storage moved from in-memory dict to SQLite OTPCode table — survives restarts and deployments',
+    'Resend auto-unsuppress: detects suppression error, removes address, retries send automatically',
 ]
