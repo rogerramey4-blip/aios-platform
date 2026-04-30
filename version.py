@@ -1,4 +1,4 @@
-VERSION    = 'v3.2.11'
+VERSION    = 'v3.2.12'
 BUILD_DATE = '2026-04-30'
 
 CHANGES = [

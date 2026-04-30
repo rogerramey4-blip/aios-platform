@@ -54,12 +54,15 @@ def send(to: str | list, subject: str, html: str, text: str = ''):
             msg.attach(MIMEText(text, 'plain'))
         msg.attach(MIMEText(html, 'html'))
         try:
+            import socket as _sock
+            # Force IPv4 — Railway containers have no IPv6 route
+            host_ip = _sock.getaddrinfo(host, port, _sock.AF_INET)[0][4][0]
             if port == 465:
-                with smtplib.SMTP_SSL(host, port, timeout=15) as srv:
+                with smtplib.SMTP_SSL(host_ip, port, timeout=15) as srv:
                     srv.login(user, password)
                     srv.sendmail(from_addr, recipients, msg.as_string())
             else:
-                with smtplib.SMTP(host, port, timeout=15) as srv:
+                with smtplib.SMTP(host_ip, port, timeout=15) as srv:
                     srv.ehlo(); srv.starttls(); srv.login(user, password)
                     srv.sendmail(from_addr, recipients, msg.as_string())
             log.info('[AIOS Notify] SMTP sent "%s" to %s', subject, recipients)
@@ -90,18 +93,22 @@ def _resend_from_addr() -> str:
 
 def _unsuppress(emails: list, api_key: str):
     """Remove addresses from Resend suppression list so delivery succeeds."""
-    import urllib.request as _ur
+    import urllib.request as _ur, json as _json
     for addr in emails:
         try:
+            # Resend suppressions API: DELETE /v1/emails/suppress with JSON body
+            body = _json.dumps({'email': addr}).encode()
             req = _ur.Request(
-                f'https://api.resend.com/emails/suppress/{addr}',
+                'https://api.resend.com/emails/suppress',
+                data=body,
                 method='DELETE',
-                headers={'Authorization': f'Bearer {api_key}'},
+                headers={'Authorization': f'Bearer {api_key}',
+                         'Content-Type': 'application/json'},
             )
             _ur.urlopen(req, timeout=5)
-            log.info('[AIOS Notify] Removed %s from Resend suppression list', addr)
+            log.warning('[AIOS Notify] Removed %s from Resend suppression list', addr)
         except Exception as exc:
-            log.debug('[AIOS Notify] Unsuppress %s: %s', addr, exc)
+            log.warning('[AIOS Notify] Unsuppress %s: %s', addr, exc)
 
 
 def _send_resend(recipients: list, subject: str, html: str, text: str, api_key: str) -> tuple:
