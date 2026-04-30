@@ -1,4 +1,4 @@
-VERSION    = 'v3.2.13'
+VERSION    = 'v3.2.14'
 BUILD_DATE = '2026-04-30'
 
 CHANGES = [
@@ -34,4 +34,6 @@ CHANGES = [
     # v3.2.9
     'OTP storage moved from in-memory dict to SQLite OTPCode table — survives restarts and deployments',
     'Resend auto-unsuppress: detects suppression error, removes address, retries send automatically',
+    # v3.2.14
+    'Switch email to SendGrid HTTP API (Railway blocks SMTP): no more timed-out failures',
 ]

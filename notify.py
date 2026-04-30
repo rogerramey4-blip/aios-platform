@@ -1,13 +1,13 @@
 """
-AIOS Notification — sends transactional emails via Gmail SMTP.
-Fallback: prints to console (visible in Railway logs).
+AIOS Notification — sends transactional emails.
+Primary:  SendGrid HTTP API (not blocked by Railway).
+Fallback: console / Railway logs.
 """
 import os
-import socket
-import smtplib
+import json
 import logging
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import urllib.request
+import urllib.error
 
 log = logging.getLogger(__name__)
 
@@ -20,40 +20,50 @@ def _cfg(key: str, default: str = '') -> str:
         return os.getenv(key, default)
 
 
+def _send_sendgrid(recipients: list, subject: str, html: str, text: str = '') -> bool:
+    api_key  = _cfg('SENDGRID_API_KEY')
+    from_addr = _cfg('SENDGRID_FROM') or _cfg('SMTP_USER') or ''
+    if not api_key or not from_addr:
+        return False
+    payload = {
+        'personalizations': [{'to': [{'email': r} for r in recipients]}],
+        'from':    {'email': from_addr},
+        'subject': subject,
+        'content': [],
+    }
+    if text:
+        payload['content'].append({'type': 'text/plain', 'value': text})
+    payload['content'].append({'type': 'text/html', 'value': html})
+    req = urllib.request.Request(
+        'https://api.sendgrid.com/v3/mail/send',
+        data=json.dumps(payload).encode(),
+        headers={
+            'Authorization': f'Bearer {api_key}',
+            'Content-Type':  'application/json',
+        },
+        method='POST',
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            ok = resp.status in (200, 202)
+            if ok:
+                log.warning('[AIOS Notify] SendGrid sent "%s" to %s', subject, recipients)
+            return ok
+    except urllib.error.HTTPError as exc:
+        body = exc.read(512).decode(errors='replace')
+        log.error('[AIOS Notify] SendGrid HTTP %s: %s', exc.code, body)
+        return False
+    except Exception as exc:
+        log.error('[AIOS Notify] SendGrid error: %s', exc)
+        return False
+
+
 def send(to: str | list, subject: str, html: str, text: str = ''):
-    """Send via SMTP. Falls back to console (Railway logs) if SMTP unavailable."""
+    """Send via SendGrid HTTP API. Falls back to console if unconfigured."""
     recipients = [to] if isinstance(to, str) else to
 
-    host     = _cfg('SMTP_HOST')
-    port     = int(_cfg('SMTP_PORT') or 587)
-    user     = _cfg('SMTP_USER')
-    password = _cfg('SMTP_PASS')
-
-    if host and user and password:
-        msg = MIMEMultipart('alternative')
-        msg['Subject'] = subject
-        msg['From']    = f'AIOS <{user}>'
-        msg['To']      = ', '.join(recipients)
-        if text:
-            msg.attach(MIMEText(text, 'plain'))
-        msg.attach(MIMEText(html, 'html'))
-        try:
-            # Force IPv4 — Railway containers have no IPv6 route to smtp.gmail.com
-            host_ip = socket.getaddrinfo(host, port, socket.AF_INET)[0][4][0]
-            if port == 465:
-                with smtplib.SMTP_SSL(host_ip, port, timeout=15) as srv:
-                    srv.login(user, password)
-                    srv.sendmail(user, recipients, msg.as_string())
-            else:
-                with smtplib.SMTP(host_ip, port, timeout=15) as srv:
-                    srv.ehlo()
-                    srv.starttls()
-                    srv.login(user, password)
-                    srv.sendmail(user, recipients, msg.as_string())
-            log.warning('[AIOS Notify] SMTP sent "%s" to %s', subject, recipients)
-            return
-        except Exception as exc:
-            log.warning('[AIOS Notify] SMTP failed (%s) — falling back to console', exc)
+    if _send_sendgrid(recipients, subject, html, text):
+        return
 
     # Console fallback — always visible in Railway logs
     import re as _re
