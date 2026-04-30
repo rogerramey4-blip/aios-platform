@@ -25,6 +25,7 @@ def _set_pragmas(dbapi_conn, _):
     cur.execute('PRAGMA journal_mode=WAL')
     cur.execute('PRAGMA foreign_keys=ON')
     cur.execute('PRAGMA synchronous=NORMAL')
+    cur.execute('PRAGMA busy_timeout=10000')
     cur.close()
 
 _Session = sessionmaker(bind=_engine)

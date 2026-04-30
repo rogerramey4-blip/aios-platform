@@ -1,4 +1,4 @@
-VERSION    = 'v3.2.5'
+VERSION    = 'v3.2.6'
 BUILD_DATE = '2026-04-30'
 
 CHANGES = [
@@ -24,4 +24,6 @@ CHANGES = [
     'SMTP credentials encrypted with Fernet; admin UI at /admin/settings/smtp',
     'auth._deliver() and notify._smtp_cfg() use DB config with env var fallback',
     'check_authorized() — validates email/lockout without sending OTP (for TOTP flow)',
+    # v3.2.6
+    'SQLite busy_timeout=10000ms: prevents DB locked error on multi-worker gunicorn startup',
 ]
