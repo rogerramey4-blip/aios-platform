@@ -70,10 +70,13 @@ def _send_resend(recipients: list, subject: str, html: str, text: str, api_key: 
     try:
         import resend as _resend
         _resend.api_key = api_key
-        from_addr = _cfg('SMTP_USER') or 'noreply@aievolutionservices.com'
-        # Resend requires a verified domain; fall back to their sandbox address if needed
+        # RESEND_FROM: set to your verified domain address once verified.
+        # Defaults to Resend's shared address which works immediately with no verification.
+        from_addr = _cfg('RESEND_FROM') or 'AIOS <onboarding@resend.dev>'
+        if '@' in from_addr and '<' not in from_addr:
+            from_addr = f'AIOS <{from_addr}>'
         params = {
-            'from':    f'AIOS <{from_addr}>',
+            'from':    from_addr,
             'to':      recipients,
             'subject': subject,
             'html':    html,
