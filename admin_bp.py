@@ -281,6 +281,75 @@ def _check_dns_txt(domain: str, token: str) -> bool:
 
 
 
+# ── Gmail API authorization ───────────────────────────────────────────────────
+@admin_bp.route('/gmail-auth')
+@require_admin
+def gmail_auth():
+    import os, urllib.parse
+    from flask import redirect, url_for
+    client_id = os.getenv('GOOGLE_CLIENT_ID', '')
+    if not client_id:
+        return ('<html><body style="background:#0a0e14;color:#e6edf3;font-family:monospace;padding:32px">'
+                '<h2 style="color:#e3b341">Missing GOOGLE_CLIENT_ID</h2>'
+                '<p>Add <code>GOOGLE_CLIENT_ID</code> and <code>GOOGLE_CLIENT_SECRET</code> '
+                'to Railway environment variables, then redeploy and reload this page.</p>'
+                '</body></html>'), 400
+    params = urllib.parse.urlencode({
+        'client_id':     client_id,
+        'redirect_uri':  url_for('admin.gmail_callback', _external=True),
+        'scope':         'https://www.googleapis.com/auth/gmail.send',
+        'response_type': 'code',
+        'access_type':   'offline',
+        'prompt':        'consent',
+    })
+    return redirect(f'https://accounts.google.com/o/oauth2/auth?{params}')
+
+
+@admin_bp.route('/gmail-callback')
+@require_admin
+def gmail_callback():
+    import os, json as _json, urllib.request, urllib.parse, urllib.error
+    from flask import request, url_for
+    code = request.args.get('code', '')
+    if not code:
+        return '<h2>Authorization failed — no code returned.</h2>', 400
+    client_id     = os.getenv('GOOGLE_CLIENT_ID', '')
+    client_secret = os.getenv('GOOGLE_CLIENT_SECRET', '')
+    data = urllib.parse.urlencode({
+        'code':          code,
+        'client_id':     client_id,
+        'client_secret': client_secret,
+        'redirect_uri':  url_for('admin.gmail_callback', _external=True),
+        'grant_type':    'authorization_code',
+    }).encode()
+    req = urllib.request.Request(
+        'https://oauth2.googleapis.com/token',
+        data=data,
+        headers={'Content-Type': 'application/x-www-form-urlencoded'},
+        method='POST',
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            token = _json.loads(resp.read())
+    except Exception as exc:
+        return (f'<html><body style="background:#0a0e14;color:#e6edf3;padding:32px">'
+                f'<h2 style="color:red">Token exchange failed: {exc}</h2></body></html>'), 500
+    refresh_token = token.get('refresh_token', '')
+    if not refresh_token:
+        return ('<html><body style="background:#0a0e14;color:#e6edf3;padding:32px">'
+                '<h2 style="color:red">No refresh_token returned.</h2>'
+                '<p>Revoke AIOS access at <a href="https://myaccount.google.com/permissions" '
+                'style="color:#e3b341">myaccount.google.com/permissions</a> then try again.</p>'
+                '</body></html>'), 400
+    from models import set_config
+    set_config('GMAIL_REFRESH_TOKEN', refresh_token)
+    return ('<html><body style="background:#0a0e14;color:#e6edf3;font-family:monospace;padding:32px">'
+            '<h2 style="color:#3fb950">Gmail authorized!</h2>'
+            '<p>AIOS will now send email via the Gmail API (HTTPS). '
+            'Test it: <a href="/admin/test-email" style="color:#e3b341">/admin/test-email</a></p>'
+            '</body></html>')
+
+
 # ── SMTP settings ─────────────────────────────────────────────────────────────
 @admin_bp.route('/settings/smtp', methods=['GET', 'POST'])
 @require_admin
