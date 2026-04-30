@@ -1,0 +1,13 @@
+{
+  "name": "AIOS — AI Operating System",
+  "short_name": "AIOS",
+  "description": "AI Operating System — Autonomous Industry Intelligence",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0e14",
+  "theme_color": "#e3b341",
+  "icons": [
+    { "src": "/static/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/static/icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

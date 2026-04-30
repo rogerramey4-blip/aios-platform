@@ -101,6 +101,10 @@ class Document(Base):
     summary_enc    = Column(Text,        default='')   # Fernet-encrypted plain-text summary
     uploaded_by    = Column(String(200), default='')
     uploaded_at    = Column(DateTime,    default=datetime.utcnow)
+    # Versioning for offline conflict detection
+    version        = Column(Integer,     default=1)
+    modified_by    = Column(String(200), default='')
+    modified_at    = Column(DateTime,    default=datetime.utcnow, onupdate=datetime.utcnow)
 
     tenant = relationship('Tenant', back_populates='documents')
 
@@ -134,6 +138,56 @@ class AuditLog(Base):
     user_agent = Column(String(500), default='')
     result     = Column(String(20),  default='success')  # success|failure|warning
     detail     = Column(Text,        default='')
+
+
+class SyncConflict(Base):
+    """
+    Tracks conflicts when an offline user's queued change collides with
+    a server-side change made by a different user during the offline period.
+    Both users are notified via email; either can resolve via the UI.
+    """
+    __tablename__ = 'sync_conflicts'
+
+    id                  = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    tenant_id           = Column(String(36), ForeignKey('tenants.id'), nullable=True)
+    resource_type       = Column(String(50),  default='')   # 'document', 'tenant', 'domain'
+    resource_id         = Column(String(36),  default='')
+    field_name          = Column(String(100), default='')
+    # Encrypted values (Fernet) so no plaintext leaks at rest
+    local_value_enc     = Column(Text,        default='')
+    server_value_enc    = Column(Text,        default='')
+    # Human-readable display values (truncated, not sensitive)
+    local_display       = Column(String(300), default='')
+    server_display      = Column(String(300), default='')
+    local_user_email    = Column(String(200), default='')
+    local_modified_at   = Column(DateTime,    nullable=True)
+    local_base_version  = Column(Integer,     default=0)
+    server_user_email   = Column(String(200), default='')
+    server_modified_at  = Column(DateTime,    nullable=True)
+    server_version      = Column(Integer,     default=0)
+    status              = Column(String(30),  default='pending')
+    # pending | resolved_local | resolved_server | dismissed
+    resolution_note     = Column(Text,        default='')
+    notifications_sent  = Column(Boolean,     default=False)
+    created_at          = Column(DateTime,    default=datetime.utcnow)
+    resolved_at         = Column(DateTime,    nullable=True)
+
+    def to_dict(self, include_encrypted=False):
+        return {
+            'id':                self.id,
+            'resource_type':     self.resource_type,
+            'resource_id':       self.resource_id,
+            'field_name':        self.field_name,
+            'local_display':     self.local_display,
+            'server_display':    self.server_display,
+            'local_user_email':  self.local_user_email,
+            'local_modified_at': self.local_modified_at.isoformat() if self.local_modified_at else None,
+            'local_base_version':self.local_base_version,
+            'server_user_email': self.server_user_email,
+            'server_version':    self.server_version,
+            'status':            self.status,
+            'created_at':        self.created_at.isoformat() if self.created_at else None,
+        }
 
 
 def secrets_token():

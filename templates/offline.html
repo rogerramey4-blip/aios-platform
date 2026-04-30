@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AIOS — Offline</title>
+  <link rel="manifest" href="/static/manifest.json">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:#0a0e14;color:#e6edf3;font-family:'Inter',sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+    .card{background:#0d1117;border:1px solid #30363d;border-radius:16px;padding:48px 40px;max-width:480px;width:100%;text-align:center}
+    .logo{font-size:32px;font-weight:900;letter-spacing:5px;margin-bottom:6px}
+    .logo span{color:#e3b341}
+    .sub{font-size:11px;color:#484f58;letter-spacing:2px;text-transform:uppercase;margin-bottom:40px}
+    .icon{font-size:52px;margin-bottom:20px;opacity:.7}
+    h1{font-size:22px;font-weight:800;margin-bottom:12px}
+    p{font-size:14px;color:#8b949e;line-height:1.7;margin-bottom:8px}
+    .badge{display:inline-block;background:#1c2128;border:1px solid #30363d;border-radius:6px;padding:4px 12px;font-size:11px;color:#e3b341;letter-spacing:1px;text-transform:uppercase;margin-bottom:32px}
+    .btn{display:inline-block;background:#e3b341;color:#000;font-weight:800;font-size:13px;border:none;border-radius:8px;padding:12px 28px;cursor:pointer;text-decoration:none;margin-top:16px}
+    .btn:hover{background:#f0c84e}
+    .hint{font-size:12px;color:#484f58;margin-top:20px}
+    .dot{width:8px;height:8px;border-radius:50%;background:#f85149;display:inline-block;margin-right:6px;vertical-align:middle}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">A<span>IOS</span></div>
+    <div class="sub">AI Evolution Services</div>
+    <div class="icon">⚡</div>
+    <div class="badge"><span class="dot"></span>No Internet Connection</div>
+    <h1>You're Working Offline</h1>
+    <p>AIOS is running in offline mode. Your data is cached locally and all changes are being queued automatically.</p>
+    <p>When your connection is restored, everything will sync back to the server — and you'll be notified of any conflicts that need your attention.</p>
+    <div class="hint">Changes made offline are saved securely in your browser until the next sync.</div>
+    <br>
+    <button class="btn" onclick="window.location.reload()">Try Reconnecting</button>
+  </div>
+  <script>
+    // Auto-reload when connection returns
+    window.addEventListener('online', () => {
+      window.location.href = '/';
+    });
+  </script>
+</body>
+</html>

@@ -13,6 +13,7 @@ from models import init_db, Tenant, TenantUser, Document, Domain, db
 from security import init_security, audit
 from onboarding import onboard_bp
 from admin_bp import admin_bp
+from sync_bp import sync_bp
 import werkzeug.utils as wz
 
 app = Flask(__name__)
@@ -29,6 +30,7 @@ with app.app_context():
 init_security(app)
 app.register_blueprint(onboard_bp)
 app.register_blueprint(admin_bp)
+app.register_blueprint(sync_bp)
 
 # ── Custom-domain tenant routing ──────────────────────────────────────────────
 @app.before_request
@@ -1045,7 +1047,24 @@ def domain_verify(industry, domain_id):
 # ── Health check ──────────────────────────────────────────────────────────────
 @app.route('/health')
 def health():
-    return jsonify({'status': 'ok', 'version': 'v3.0.0'})
+    return jsonify({'status': 'ok', 'version': 'v3.1.0'})
+
+
+# ── Offline fallback page ─────────────────────────────────────────────────────
+@app.route('/offline')
+def offline_page():
+    return render_template('offline.html'), 200
+
+
+# ── Service Worker — must be served from root scope ───────────────────────────
+@app.route('/sw.js')
+def service_worker():
+    from flask import send_from_directory, make_response
+    resp = make_response(send_from_directory('static', 'sw.js'))
+    resp.headers['Content-Type']          = 'application/javascript'
+    resp.headers['Service-Worker-Allowed'] = '/'
+    resp.headers['Cache-Control']          = 'no-cache'
+    return resp
 
 
 if __name__ == '__main__':

@@ -9,9 +9,42 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="manifest" href="/static/manifest.json">
   <link rel="stylesheet" href="/static/css/aios.css">
   <link rel="stylesheet" href="/static/css/subpages.css">
   {% block head %}{% endblock %}
+  <style>
+    #aios-offline-banner{display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:#1c2128;border-bottom:2px solid #f85149;padding:9px 20px;font-size:12px;color:#e6edf3;text-align:center;font-weight:600;letter-spacing:.5px}
+    #aios-offline-banner.visible{display:block}
+    #aios-offline-banner .offline-dot{width:7px;height:7px;border-radius:50%;background:#f85149;display:inline-block;margin-right:7px;vertical-align:middle}
+    #aios-conflict-banner{display:none;position:fixed;top:0;left:0;right:0;z-index:9998;background:#1c2128;border-bottom:2px solid #e3b341;padding:9px 20px;font-size:12px;color:#e6edf3;text-align:center;font-weight:600;letter-spacing:.5px;cursor:pointer}
+    #aios-conflict-banner.visible{display:block}
+    #aios-conflict-banner .conflict-dot{width:7px;height:7px;border-radius:50%;background:#e3b341;display:inline-block;margin-right:7px;vertical-align:middle}
+    body.has-offline-banner .header,body.has-offline-banner .sidebar,body.has-offline-banner .main{margin-top:38px}
+    /* Conflict review panel */
+    #aios-conflict-panel{position:fixed;top:0;right:-420px;width:420px;height:100vh;background:#0d1117;border-left:1px solid #30363d;z-index:10000;overflow-y:auto;transition:right .3s ease;box-shadow:-4px 0 24px rgba(0,0,0,.6);padding:0}
+    #aios-conflict-panel.open{right:0}
+    #aios-conflict-panel .cp-header{padding:20px 20px 16px;border-bottom:1px solid #21262d;display:flex;align-items:center;justify-content:space-between}
+    #aios-conflict-panel .cp-title{font-size:15px;font-weight:800;color:#e6edf3}
+    #aios-conflict-panel .cp-close{background:none;border:none;color:#8b949e;font-size:20px;cursor:pointer;padding:2px 6px;border-radius:4px}
+    #aios-conflict-panel .cp-close:hover{background:#21262d;color:#e6edf3}
+    #aios-conflict-panel .cp-body{padding:16px 20px}
+    .conflict-card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:14px;margin-bottom:14px}
+    .conflict-card .cc-res{font-size:11px;color:#484f58;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+    .conflict-card .cc-field{font-size:13px;color:#e6edf3;font-weight:700;margin-bottom:10px}
+    .conflict-versions{display:flex;gap:10px;margin-bottom:12px}
+    .cv-local,.cv-server{flex:1;background:#0a0e14;border-radius:6px;padding:10px}
+    .cv-local .cv-label{font-size:10px;color:#3fb950;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+    .cv-server .cv-label{font-size:10px;color:#e3b341;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+    .cv-local .cv-user,.cv-server .cv-user{font-size:11px;color:#8b949e;margin-bottom:3px}
+    .cv-local .cv-val,.cv-server .cv-val{font-size:12px;color:#e6edf3;word-break:break-all}
+    .conflict-actions{display:flex;gap:8px;flex-wrap:wrap}
+    .conflict-actions button{flex:1;padding:7px 10px;border-radius:6px;font-size:12px;font-weight:700;border:none;cursor:pointer}
+    .btn-keep-local{background:#3fb950;color:#000}
+    .btn-keep-server{background:#e3b341;color:#000}
+    .btn-dismiss{background:#21262d;color:#8b949e}
+    .btn-contact{background:none;border:1px solid #30363d!important;color:#8b949e;text-decoration:none;display:inline-block;padding:7px 10px;border-radius:6px;font-size:12px;font-weight:700;text-align:center}
+  </style>
 </head>
 <body data-industry="{{ data.industry }}">
 <div class="layout">
@@ -57,5 +90,42 @@
 </div>
 <script src="/static/js/aios.js"></script>
 {% block scripts %}{% endblock %}
+
+<!-- ── Offline banner ─────────────────────────────────────────────────── -->
+<div id="aios-offline-banner">
+  <span class="offline-dot"></span>
+  <span class="offline-msg">No internet connection — working from cached data. Changes will sync automatically when you reconnect.</span>
+</div>
+
+<!-- ── Conflict banner ───────────────────────────────────────────────── -->
+<div id="aios-conflict-banner" onclick="window.AIOSSyncManager && window.AIOSSyncManager.openConflictPanel()">
+  <span class="conflict-dot"></span>
+  <span class="conflict-msg">Sync conflict detected — click to review</span>
+</div>
+
+<!-- ── Conflict review panel ─────────────────────────────────────────── -->
+<div id="aios-conflict-panel">
+  <div class="cp-header">
+    <span class="cp-title">⚡ Sync Conflicts</span>
+    <button class="cp-close" onclick="document.getElementById('aios-conflict-panel').classList.remove('open')">✕</button>
+  </div>
+  <div class="cp-body" id="aios-conflict-list">
+    <p style="font-size:13px;color:#8b949e;text-align:center;padding:32px 0;">Loading conflicts…</p>
+  </div>
+</div>
+
+<!-- ── Offline-first JS ───────────────────────────────────────────────── -->
+<script src="/static/js/offline-db.js"></script>
+<script src="/static/js/sync-manager.js"></script>
+<script>
+  // Register Service Worker
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js', { scope: '/' })
+        .then(reg => console.log('[AIOS SW] registered scope:', reg.scope))
+        .catch(err => console.warn('[AIOS SW] registration failed:', err));
+    });
+  }
+</script>
 </body>
 </html>
