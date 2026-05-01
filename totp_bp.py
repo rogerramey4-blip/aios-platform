@@ -34,13 +34,18 @@ def _admin_totp_env_secret() -> str:
     return os.getenv('ADMIN_TOTP_SECRET', '')
 
 
+def _admin_totp_env_email() -> str:
+    """Which admin email owns the ADMIN_TOTP_SECRET env var (defaults to Roger)."""
+    return os.getenv('ADMIN_TOTP_EMAIL', 'roger@aievolutionservices.com').strip().lower()
+
+
 def totp_enabled(email: str) -> bool:
     """Returns True if the user has an active authenticator app registered."""
     try:
         email = email.strip().lower()
         if email in ALLOWED_EMAILS:
-            # Env var takes priority — survives Railway redeploys that wipe the DB
-            if _admin_totp_env_secret():
+            # Env var only applies to the specific admin who set it up
+            if _admin_totp_env_secret() and email == _admin_totp_env_email():
                 return True
             rec = AdminTOTP.query.filter_by(email=email).first()
             return bool(rec and rec.totp_enabled)
@@ -55,9 +60,9 @@ def get_totp_secret(email: str) -> str | None:
     try:
         email = email.strip().lower()
         if email in ALLOWED_EMAILS:
-            # Env var takes priority — survives Railway redeploys that wipe the DB
+            # Env var only applies to the specific admin who set it up
             env_secret = _admin_totp_env_secret()
-            if env_secret:
+            if env_secret and email == _admin_totp_env_email():
                 return env_secret
             rec = AdminTOTP.query.filter_by(email=email).first()
             if rec and rec.totp_secret_enc:

@@ -1,7 +1,9 @@
-VERSION    = 'v3.2.25'
+VERSION    = 'v3.2.26'
 BUILD_DATE = '2026-05-01'
 
 CHANGES = [
+    'Auth fix: ADMIN_TOTP_SECRET env var scoped to owning admin email only — kevin@ and charlene@ no longer forced into TOTP flow when only roger@ has enrolled',
+    # v3.2.25
     'User Guide: /<industry>/guide for all 8 industries — quick start, sections, FAQs, print support (guide.html)',
     'Onboarding: guide auto-seeded as Document in new tenant vault on account creation',
     'Onboarding: HVAC, Plumbing, Restaurant added to industry selector',
