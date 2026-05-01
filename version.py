@@ -1,7 +1,9 @@
-VERSION    = 'v3.2.21'
+VERSION    = 'v3.2.22'
 BUILD_DATE = '2026-04-30'
 
 CHANGES = [
+    'Use Cases: expanded detail drawer with requirements, integrations, ROI, setup time per use case',
+    # v3.2.21
     'Enterprise security: OWASP Top 10 hardening (security.py)',
     'AES-256 per-tenant encryption at rest (encryption.py)',
     'Multi-tenant SQLAlchemy models with versioned sync conflict detection',

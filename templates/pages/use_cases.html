@@ -1,20 +1,190 @@
 {% extends "base.html" %}
 {% block main %}
+<style>
+  .uc-filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px;}
+  .uc-filter-btn{padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-secondary);font-size:12px;font-weight:600;cursor:pointer;transition:all var(--ease);}
+  .uc-filter-btn:hover,.uc-filter-btn.active{background:var(--gold);color:#0d1117;border-color:var(--gold);}
+  .use-cases-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;}
+  .use-case-card{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:20px;cursor:pointer;transition:all var(--ease);position:relative;overflow:hidden;}
+  .use-case-card:hover{border-color:var(--gold);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.3);}
+  .use-case-card.active-card{border-color:rgba(63,185,80,.5);}
+  .use-case-card.active-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--green);}
+  .uc-icon{font-size:28px;margin-bottom:10px;line-height:1;}
+  .uc-title{font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:6px;line-height:1.4;}
+  .uc-desc{font-size:12px;color:var(--text-secondary);line-height:1.6;margin-bottom:14px;}
+  .uc-meta{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+  .uc-meta-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:10px;font-size:10px;font-weight:700;}
+  .uc-meta-roi{background:rgba(63,185,80,.12);color:var(--green);border:1px solid rgba(63,185,80,.3);}
+  .uc-meta-setup{background:rgba(88,166,255,.12);color:var(--blue);border:1px solid rgba(88,166,255,.3);}
+  .uc-footer{display:flex;justify-content:space-between;align-items:center;}
+  .uc-cat{font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--text-muted);background:var(--bg-tertiary);padding:3px 8px;border-radius:8px;}
+  .uc-status{font-size:11px;font-weight:600;}
+  .uc-status.active{color:var(--green);}
+  .uc-status.available{color:var(--text-muted);}
+  .uc-detail-btn{margin-top:12px;width:100%;padding:7px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--text-secondary);font-size:11px;font-weight:600;cursor:pointer;transition:all var(--ease);font-family:inherit;}
+  .uc-detail-btn:hover{border-color:var(--gold);color:var(--gold);}
+
+  /* Drawer */
+  .uc-drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;opacity:0;pointer-events:none;transition:opacity .25s;}
+  .uc-drawer-overlay.open{opacity:1;pointer-events:all;}
+  .uc-drawer{position:fixed;top:0;right:0;bottom:0;width:min(520px,100vw);background:var(--bg-card);border-left:1px solid var(--border);z-index:1001;transform:translateX(100%);transition:transform .3s cubic-bezier(.25,.8,.25,1);overflow-y:auto;display:flex;flex-direction:column;}
+  .uc-drawer.open{transform:translateX(0);}
+  .uc-drawer-header{padding:24px 28px 20px;border-bottom:1px solid var(--border-light);display:flex;align-items:flex-start;gap:14px;position:sticky;top:0;background:var(--bg-card);z-index:2;}
+  .uc-drawer-icon{font-size:36px;flex-shrink:0;line-height:1;}
+  .uc-drawer-title-block{flex:1;}
+  .uc-drawer-title{font-size:18px;font-weight:800;color:var(--text-primary);margin-bottom:4px;line-height:1.3;}
+  .uc-drawer-cat{font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--gold);}
+  .uc-drawer-close{width:32px;height:32px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-muted);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all var(--ease);}
+  .uc-drawer-close:hover{border-color:var(--red);color:var(--red);}
+  .uc-drawer-body{padding:24px 28px;flex:1;}
+  .uc-drawer-desc{font-size:13px;color:var(--text-secondary);line-height:1.7;margin-bottom:22px;}
+  .uc-drawer-kpis{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:24px;}
+  .uc-drawer-kpi{background:var(--bg-tertiary);border:1px solid var(--border);border-radius:10px;padding:14px;}
+  .uc-drawer-kpi-label{font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;}
+  .uc-drawer-kpi-value{font-size:12px;font-weight:700;color:var(--text-primary);line-height:1.4;}
+  .uc-drawer-kpi.roi .uc-drawer-kpi-value{color:var(--green);}
+  .uc-drawer-kpi.setup .uc-drawer-kpi-value{color:var(--blue);}
+  .uc-drawer-section{margin-bottom:22px;}
+  .uc-drawer-section-title{font-size:12px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--text-primary);margin-bottom:10px;display:flex;align-items:center;gap:6px;}
+  .uc-drawer-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:7px;}
+  .uc-drawer-list li{display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--text-secondary);line-height:1.6;}
+  .uc-drawer-list li::before{content:'';flex-shrink:0;width:6px;height:6px;border-radius:50%;margin-top:6px;}
+  .uc-drawer-list.req li::before{background:var(--gold);}
+  .uc-drawer-list.int li::before{background:var(--blue);}
+  .uc-drawer-footer{padding:20px 28px;border-top:1px solid var(--border-light);background:var(--bg-card);}
+  .uc-drawer-status{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;padding:6px 14px;border-radius:20px;}
+  .uc-drawer-status.active{background:rgba(63,185,80,.12);color:var(--green);border:1px solid rgba(63,185,80,.3);}
+  .uc-drawer-status.available{background:var(--bg-tertiary);color:var(--text-muted);border:1px solid var(--border);}
+</style>
+
 <div class="page-header">
   <div class="page-breadcrumb"><a href="/{{ data.industry }}">Dashboard</a><span class="breadcrumb-sep">›</span><span>Use Cases</span></div>
-  <div class="page-title-row"><div class="page-title">⚡ AI Use Cases</div><div class="page-subtitle">{{ use_cases|selectattr('status','equalto','active')|list|length }} active · {{ use_cases|selectattr('status','equalto','available')|list|length }} available</div></div>
+  <div class="page-title-row">
+    <div class="page-title">⚡ AI Use Cases</div>
+    <div class="page-subtitle">{{ use_cases|selectattr('status','equalto','active')|list|length }} active · {{ use_cases|selectattr('status','equalto','available')|list|length }} available</div>
+  </div>
 </div>
-<div class="use-cases-grid">
+
+<!-- Category filter -->
+<div class="uc-filters" id="uc-filters">
+  <button class="uc-filter-btn active" data-cat="all">All</button>
+  {% set cats = use_cases|map(attribute='category')|unique|list %}
+  {% for cat in cats %}
+  <button class="uc-filter-btn" data-cat="{{ cat }}">{{ cat }}</button>
+  {% endfor %}
+</div>
+
+<!-- Grid -->
+<div class="use-cases-grid" id="uc-grid">
   {% for uc in use_cases %}
-  <div class="use-case-card">
+  <div class="use-case-card {% if uc.status == 'active' %}active-card{% endif %}"
+       data-cat="{{ uc.category }}"
+       data-idx="{{ loop.index0 }}"
+       onclick="openDrawer({{ loop.index0 }})">
     <div class="uc-icon">{{ uc.icon }}</div>
     <div class="uc-title">{{ uc.title }}</div>
     <div class="uc-desc">{{ uc.desc }}</div>
+    <div class="uc-meta">
+      <span class="uc-meta-badge uc-meta-roi">📈 {{ uc.roi }}</span>
+      <span class="uc-meta-badge uc-meta-setup">⏱ Setup: {{ uc.setup }}</span>
+    </div>
     <div class="uc-footer">
       <span class="uc-cat">{{ uc.category }}</span>
       <span class="uc-status {{ uc.status }}">{% if uc.status == 'active' %}● Active{% else %}○ Available{% endif %}</span>
     </div>
+    <button class="uc-detail-btn" onclick="event.stopPropagation();openDrawer({{ loop.index0 }})">View Requirements & Integrations →</button>
   </div>
   {% endfor %}
 </div>
+
+<!-- Detail Drawer -->
+<div class="uc-drawer-overlay" id="uc-overlay" onclick="closeDrawer()"></div>
+<div class="uc-drawer" id="uc-drawer">
+  <div class="uc-drawer-header">
+    <div class="uc-drawer-icon" id="d-icon"></div>
+    <div class="uc-drawer-title-block">
+      <div class="uc-drawer-title" id="d-title"></div>
+      <div class="uc-drawer-cat" id="d-cat"></div>
+    </div>
+    <button class="uc-drawer-close" onclick="closeDrawer()">✕</button>
+  </div>
+  <div class="uc-drawer-body">
+    <div class="uc-drawer-desc" id="d-desc"></div>
+    <div class="uc-drawer-kpis">
+      <div class="uc-drawer-kpi roi">
+        <div class="uc-drawer-kpi-label">ROI Impact</div>
+        <div class="uc-drawer-kpi-value" id="d-roi"></div>
+      </div>
+      <div class="uc-drawer-kpi setup">
+        <div class="uc-drawer-kpi-label">Setup Time</div>
+        <div class="uc-drawer-kpi-value" id="d-setup"></div>
+      </div>
+    </div>
+    <div class="uc-drawer-section">
+      <div class="uc-drawer-section-title">🔧 Requirements to Go Live</div>
+      <ul class="uc-drawer-list req" id="d-requirements"></ul>
+    </div>
+    <div class="uc-drawer-section">
+      <div class="uc-drawer-section-title">🔗 Integrations Needed</div>
+      <ul class="uc-drawer-list int" id="d-integrations"></ul>
+    </div>
+  </div>
+  <div class="uc-drawer-footer">
+    <span class="uc-drawer-status" id="d-status"></span>
+  </div>
+</div>
+
+<script>
+const UC_DATA = {{ use_cases | tojson }};
+
+function openDrawer(idx) {
+  const uc = UC_DATA[idx];
+  if (!uc) return;
+  document.getElementById('d-icon').textContent = uc.icon;
+  document.getElementById('d-title').textContent = uc.title;
+  document.getElementById('d-cat').textContent = uc.category;
+  document.getElementById('d-desc').textContent = uc.desc;
+  document.getElementById('d-roi').textContent = uc.roi || '—';
+  document.getElementById('d-setup').textContent = uc.setup || '—';
+
+  const req = document.getElementById('d-requirements');
+  req.innerHTML = (uc.requirements || []).map(r => `<li>${r}</li>`).join('');
+
+  const intg = document.getElementById('d-integrations');
+  intg.innerHTML = (uc.integrations || []).map(i => `<li>${i}</li>`).join('');
+
+  const st = document.getElementById('d-status');
+  if (uc.status === 'active') {
+    st.className = 'uc-drawer-status active';
+    st.textContent = '● Active — deployed for your account';
+  } else {
+    st.className = 'uc-drawer-status available';
+    st.textContent = '○ Available — ready to activate';
+  }
+
+  document.getElementById('uc-overlay').classList.add('open');
+  document.getElementById('uc-drawer').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeDrawer() {
+  document.getElementById('uc-overlay').classList.remove('open');
+  document.getElementById('uc-drawer').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
+
+// Category filter
+document.getElementById('uc-filters').addEventListener('click', e => {
+  const btn = e.target.closest('.uc-filter-btn');
+  if (!btn) return;
+  document.querySelectorAll('.uc-filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const cat = btn.dataset.cat;
+  document.querySelectorAll('.use-case-card').forEach(card => {
+    card.style.display = (cat === 'all' || card.dataset.cat === cat) ? '' : 'none';
+  });
+});
+</script>
 {% endblock %}
