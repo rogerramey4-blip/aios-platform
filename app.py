@@ -357,10 +357,10 @@ INDUSTRIES = {
         ],
         'actions': [
             {'text': 'Listing agreement "4821 Oak Trail" expires in 3 days — renew or release',  'badge': 'URGENT',    'btype': 'urgent',   'dot': 'red'},
-            {'text': 'Client Martinez — 11 showings, no offer — price reduction analysis ready', 'badge': 'REVIEW',    'btype': 'due',      'dot': 'amber'},
+            {'text': 'Inbox: 8 responses drafted — underwriter conditions, status checks, new leads', 'badge': 'INBOX',     'btype': 'due',      'dot': 'blue'},
             {'text': 'New lead Brad Collins — buyer pre-approved $750K — no agent assigned',     'badge': 'ASSIGN',    'btype': 'time',     'dot': 'blue'},
             {'text': 'Offer deadline 5PM on "2200 Ridgewood Dr" — 3 offers received',           'badge': 'DUE TODAY', 'btype': 'risk',     'dot': 'amber'},
-            {'text': 'Agent Kim Tran — 0 closings in 45 days — coaching flag triggered',        'badge': 'TOMORROW',  'btype': 'tomorrow', 'dot': 'gray'},
+            {'text': 'Referral outreach: 12 past clients flagged for refi scan — review list',  'badge': 'OUTREACH',  'btype': 'tomorrow', 'dot': 'green'},
         ],
         'alerts': [
             {'cat': 'MARKET',    'ctype': 'market',    'headline': 'Fed Holds Rates — Mortgage Applications Up 8% Week-Over-Week',              'source': 'MBA Weekly',   'rel': '1h ago'},
@@ -382,12 +382,12 @@ INDUSTRIES = {
             {'name': 'Closing This Mo.', 'pct': 80, 'value': '$9.2M GCI'},
         ],
         'agents': [
-            {'name': 'Lead Scorer & Router',   'status': 'active', 'detail': '14 new leads scored today'},
-            {'name': 'Listing Optimizer',      'status': 'active', 'detail': 'Price reduction rec: 3 listings'},
-            {'name': 'Market Analyst',         'status': 'active', 'detail': 'Weekly report: 8 zip codes'},
-            {'name': 'Transaction Coordinator','status': 'active', 'detail': '18 transactions tracked'},
-            {'name': 'Showing Scheduler',      'status': 'active', 'detail': '7 showings confirmed today'},
-            {'name': 'CMA Bot',                'status': 'idle',   'detail': 'On-demand · 4 CMAs this week'},
+            {'name': 'Lead Scorer & Router',    'status': 'active', 'detail': '14 new leads scored today'},
+            {'name': 'Inbox Triage Agent',      'status': 'active', 'detail': '21 emails triaged · 8 responses drafted'},
+            {'name': 'Transaction Coordinator', 'status': 'active', 'detail': '18 transactions tracked'},
+            {'name': 'Listing Optimizer',       'status': 'active', 'detail': 'Price reduction rec: 3 listings'},
+            {'name': 'Referral Outreach Agent', 'status': 'active', 'detail': 'Refi scan: 12 past clients flagged'},
+            {'name': 'Showing Scheduler',       'status': 'active', 'detail': '7 showings confirmed today'},
         ],
         'extra_panes': 'brokerage',
         'agent_leaderboard': [
@@ -674,7 +674,7 @@ BRIEF_DATA = {
     },
     'brokerage': {
         'generated_at': '7:08 AM by AIOS Daily Brief Agent',
-        'summary': 'Busy day: offer deadline at 5PM on Ridgewood Dr with 3 competing offers. New pre-approved buyer needs agent assignment. Listing on Oak Trail expiring in 3 days.',
+        'summary': 'Busy day: offer deadline at 5PM on Ridgewood Dr with 3 competing offers. Inbox Triage Agent drafted 8 responses overnight — review and send. 12 past clients flagged by refi scan for proactive outreach. Listing on Oak Trail expiring in 3 days.',
         'metrics': [
             {'label': 'Active Listings',  'value': '63',     'delta': '+3 new',      'up': True},
             {'label': 'Under Contract',   'value': '18',     'delta': '+2 this wk',  'up': True},
@@ -875,12 +875,12 @@ AGENTS_DETAIL = {
         {'name': 'SOAP Notes Agent',   'type': 'Composer',  'status': 'idle',   'last_run': '3 hrs ago',  'tasks': 1208, 'errors': 2,  'uptime': '99.8%', 'desc': 'Generates structured SOAP note drafts from provider voice dictation or clinical prompts.'},
     ],
     'brokerage': [
-        {'name': 'Lead Scorer & Router',    'type': 'Analyst',   'status': 'active', 'last_run': '4 min ago',  'tasks': 3812, 'errors': 2,  'uptime': '99.9%', 'desc': 'Scores inbound leads by likelihood to transact and routes to the best-matched agent based on history.'},
-        {'name': 'Listing Optimizer',       'type': 'Analyst',   'status': 'active', 'last_run': '30 min ago', 'tasks': 1204, 'errors': 1,  'uptime': '99.9%', 'desc': 'Analyzes listing performance and suggests price adjustments, photo changes, and description rewrites.'},
-        {'name': 'Market Analyst',          'type': 'Reporter',  'status': 'active', 'last_run': '2 hrs ago',  'tasks': 641,  'errors': 0,  'uptime': '100%',  'desc': 'Produces weekly market condition reports per zip code distributed automatically to all agents.'},
-        {'name': 'Transaction Coordinator', 'type': 'Monitor',   'status': 'active', 'last_run': '10 min ago', 'tasks': 5241, 'errors': 3,  'uptime': '99.9%', 'desc': 'Tracks all contingency deadlines per open transaction. Sends reminders to buyers, sellers, and agents.'},
-        {'name': 'Showing Scheduler',       'type': 'Workflow',  'status': 'active', 'last_run': '15 min ago', 'tasks': 2847, 'errors': 6,  'uptime': '99.8%', 'desc': 'Coordinates showing requests between buyer agents, listing agents, and sellers automatically.'},
-        {'name': 'CMA Bot',                 'type': 'Generator', 'status': 'idle',   'last_run': '3 hrs ago',  'tasks': 312,  'errors': 0,  'uptime': '100%',  'desc': 'Generates comparative market analyses from MLS data on demand in under 90 seconds.'},
+        {'name': 'Lead Scorer & Router',    'type': 'Analyst',   'status': 'active', 'last_run': '4 min ago',  'tasks': 3812, 'errors': 2,  'uptime': '99.9%', 'desc': 'Scores inbound leads 0–100 by likelihood to transact and routes to the best-matched agent based on pre-approval status, engagement signals, and agent history.'},
+        {'name': 'Inbox Triage Agent',      'type': 'Composer',  'status': 'active', 'last_run': '8 min ago',  'tasks': 4241, 'errors': 1,  'uptime': '99.9%', 'desc': 'Reads every inbound email and classifies it — underwriter conditions, borrower questions, realtor status checks, or new leads. Prioritizes by urgency and drafts a ready-to-send response for each item.'},
+        {'name': 'Transaction Coordinator', 'type': 'Monitor',   'status': 'active', 'last_run': '10 min ago', 'tasks': 5241, 'errors': 3,  'uptime': '99.9%', 'desc': 'Tracks all contingency deadlines per open transaction. Sends escalating reminders to buyers, sellers, and agents at 7d, 3d, and 1d before each deadline.'},
+        {'name': 'Listing Optimizer',       'type': 'Analyst',   'status': 'active', 'last_run': '30 min ago', 'tasks': 1204, 'errors': 1,  'uptime': '99.9%', 'desc': 'Analyzes listing performance by DOM, showing count, and comparable data. Suggests price adjustments, photo changes, and description rewrites when listings stall.'},
+        {'name': 'Referral Outreach Agent', 'type': 'Outreach',  'status': 'active', 'last_run': '1 hr ago',   'tasks': 1847, 'errors': 0,  'uptime': '100%',  'desc': 'Runs proactive outreach sequences for partner check-ins, referral follow-up, and past-client refi scans. Identifies closed clients whose equity or rate profile makes a refi conversation timely, then drafts the outreach.'},
+        {'name': 'Showing Scheduler',       'type': 'Workflow',  'status': 'active', 'last_run': '15 min ago', 'tasks': 2847, 'errors': 6,  'uptime': '99.8%', 'desc': 'Coordinates showing requests between buyer agents, listing agents, and sellers automatically. Sends confirmation and feedback requests after each showing.'},
     ],
     'hvac': [
         {'name': 'Dispatch Optimizer',    'type': 'Workflow',  'status': 'active', 'last_run': '2 min ago',  'tasks': 3812, 'errors': 1,  'uptime': '99.9%', 'desc': 'Assigns incoming jobs to the best-available technician by skill, zone, and current load. Re-routes automatically when delays or emergencies occur.'},
@@ -1538,14 +1538,14 @@ GUIDE_CONTENT = {
     },
     'brokerage': {
         'headline': 'AIOS — Real Estate Brokerage Intelligence Platform',
-        'tagline': 'Route every lead, optimize every listing, and close every transaction on schedule.',
+        'tagline': 'Triage your inbox, route every lead, close every transaction on schedule — and run proactive outreach before the day gets away from you.',
         'quick_start': [
+            'Connect your email (Gmail or Outlook) via Integrations to activate the Inbox Triage Agent',
             'Connect your CRM (Follow Up Boss or kvCORE) via Integrations to sync lead flow',
             'Connect your TC platform (SkySlope or Dotloop) for live transaction deadline tracking',
             'Import your active listings via Data Import → CSV from MLS (address, price, agent, DOM)',
-            'Review the Dashboard — check the Agent Leaderboard and any listing optimization alerts',
-            'Confirm Lead Scorer & Router and Transaction Coordinator agents are active',
-            'Review open listings with DOM > 30 days — the Listing Optimizer flags price reduction candidates',
+            'Open Email Intelligence each morning — review drafted responses from Inbox Triage Agent',
+            'Check Referral Outreach queue weekly — approve past-client refi scan outreach before it sends',
         ],
         'sections': [
             {'icon': '◎', 'title': 'Dashboard',           'tips': [
@@ -1567,10 +1567,11 @@ GUIDE_CONTENT = {
                 'Offers column is populated from your TC platform — keep SkySlope/Dotloop synced',
             ]},
             {'icon': '✉', 'title': 'Email Intelligence',  'tips': [
-                'Pre-approved buyer emails should be actioned within 30 minutes — route to matched agent',
-                'Seller "any offers?" emails trigger "Send price reduction CMA" workflow',
+                'Inbox Triage Agent runs overnight — open the drafted responses first each morning and review before sending',
+                'Underwriter conditions get the highest urgency tag — responses are drafted with required docs listed',
+                'New lead emails are auto-routed to Lead Scorer & Router — the buyer is scored and matched before you even see the email',
+                'Realtor status-check emails get a 1-click "send update" draft — current contract status pulled from TC platform automatically',
                 'Offer submission emails are auto-tagged "Log offer + notify seller" — action immediately',
-                'Agent support emails should route to broker for coaching follow-up within 24 hours',
             ]},
             {'icon': '◷', 'title': 'Integrations',        'tips': [
                 'Follow Up Boss or kvCORE CRM integration is required for Lead Scorer routing to work',
@@ -1580,10 +1581,11 @@ GUIDE_CONTENT = {
             ]},
         ],
         'faqs': [
-            {'q': 'How does Lead Scorer & Router assign leads?', 'a': 'It scores each lead 0-100 based on engagement, pre-approval status, and search behavior, then routes to the agent with the best matching history and current capacity. Configure routing rules in Integrations → Follow Up Boss.'},
+            {'q': 'How does the Inbox Triage Agent work?', 'a': 'It reads every inbound email and classifies it into one of four categories: underwriter condition, borrower question, realtor status check, or new lead. Each email gets a priority score and a drafted response. You review and send — no typing required. Connect your email via Integrations → Gmail or Outlook to activate it.'},
+            {'q': 'How does Referral Outreach Agent find past clients to contact?', 'a': 'It scans your closed client database for contacts whose loan profile suggests a refi opportunity (rate differential, equity milestone, or life event trigger). It drafts a personalized outreach message and queues it for your review before sending. You approve, it sends — the proactive work happens without displacing your day.'},
+            {'q': 'How does Lead Scorer & Router assign leads?', 'a': 'It scores each lead 0–100 based on engagement, pre-approval status, and search behavior, then routes to the agent with the best matching history and current capacity. Configure routing rules in Integrations → Follow Up Boss.'},
             {'q': 'How does the Listing Optimizer decide what to recommend?', 'a': 'It analyzes DOM, showing count, offer count, and comparable active listings. When DOM exceeds your threshold (default 30 days) without offers, it generates a report with specific price, photo, and copy recommendations.'},
             {'q': 'How are transaction deadlines tracked?', 'a': 'Connect SkySlope or Dotloop via Integrations. The Transaction Coordinator agent reads all open contracts, extracts contingency dates, and sends alerts at 7, 3, and 1 day before each deadline to buyer, seller, and agent.'},
-            {'q': 'How do I run a CMA?', 'a': 'Go to Use Cases → CMA Bot → Run. Enter the subject property address and the bot pulls MLS comparables and generates a full CMA in under 90 seconds. Output is a formatted PDF ready for client presentation.'},
         ],
     },
     'hvac': {

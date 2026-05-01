@@ -719,3 +719,74 @@ button { border: none; cursor: pointer; font-family: inherit; }
 
 .landing-footer { font-size: 11px; color: var(--text-muted); text-align: center; }
 .landing-footer span { color: var(--gold); font-weight: 700; }
+
+/* ── Who Should Have an AIOS? — landing page section ───────── */
+.who-section {
+  width: 100%;
+  max-width: 900px;
+  margin: 48px 0 0;
+  text-align: center;
+}
+.who-header {
+  font-size: 32px;
+  font-weight: 900;
+  color: var(--text-primary);
+  letter-spacing: -0.5px;
+  margin-bottom: 12px;
+  line-height: 1.2;
+}
+.who-header em {
+  color: var(--gold);
+  font-style: italic;
+}
+.who-sub {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  margin-bottom: 28px;
+}
+.who-sub strong { color: var(--gold); font-weight: 700; }
+.who-cards { display: flex; flex-direction: column; gap: 14px; }
+.who-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--gold);
+  border-radius: 10px;
+  padding: 22px 26px;
+  text-align: left;
+  transition: border-color var(--ease), box-shadow var(--ease);
+}
+.who-card:hover {
+  border-color: var(--gold);
+  box-shadow: 0 6px 24px rgba(0,0,0,.25);
+}
+.who-num {
+  min-width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(227,179,65,.12);
+  border: 1px solid rgba(227,179,65,.3);
+  color: var(--gold);
+  font-size: 13px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.who-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 7px;
+  line-height: 1.4;
+}
+.who-body {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}

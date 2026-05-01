@@ -1,7 +1,11 @@
-VERSION    = 'v3.2.26'
+VERSION    = 'v3.2.27'
 BUILD_DATE = '2026-05-01'
 
 CHANGES = [
+    'Landing page: "Who Should Have an AIOS?" section with 3 pain-point cards (pipeline follow-through, inbox triage, proactive outreach)',
+    'Brokerage: Inbox Triage Agent + Referral Outreach Agent replace Market Analyst + CMA Bot in dashboard and agents detail',
+    'Brokerage: guide tagline, email intelligence tips, quick-start, and FAQs refined to reflect inbox triage and proactive outreach pain points',
+    # v3.2.26
     'Auth fix: ADMIN_TOTP_SECRET env var scoped to owning admin email only — kevin@ and charlene@ no longer forced into TOTP flow when only roger@ has enrolled',
     # v3.2.25
     'User Guide: /<industry>/guide for all 8 industries — quick start, sections, FAQs, print support (guide.html)',
