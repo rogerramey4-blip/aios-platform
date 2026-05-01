@@ -126,6 +126,103 @@
     </tbody>
   </table>
 </div>
+
+{% elif data.industry == 'hvac' %}
+<div class="filter-bar">
+  <button class="filter-btn active" onclick="filt(this,'all')">All</button>
+  <button class="filter-btn" onclick="filt(this,'en_route')">En Route</button>
+  <button class="filter-btn" onclick="filt(this,'in_progress')">In Progress</button>
+  <button class="filter-btn" onclick="filt(this,'scheduled')">Scheduled</button>
+  <button class="filter-btn" onclick="filt(this,'completed')">Completed</button>
+</div>
+<div class="panel" style="padding:0;overflow:hidden;">
+  <table class="data-table" id="tbl">
+    <thead><tr><th>Job #</th><th>Customer</th><th>Type</th><th>Technician</th><th>Status</th><th>Revenue</th><th>ETA / Due</th></tr></thead>
+    <tbody>
+      {% for p in rows %}
+      <tr data-stage="{{ p.status }}">
+        <td class="td-mono" style="color:var(--text-muted)">{{ p.job }}</td>
+        <td class="td-primary">{{ p.customer }}</td>
+        <td style="color:var(--text-secondary)">{{ p.type }}</td>
+        <td style="color:var(--text-secondary)">{{ p.tech }}</td>
+        <td>
+          {% if p.status == 'in_progress' %}<span class="badge badge-connected" style="font-size:10px">● In Progress</span>
+          {% elif p.status == 'en_route' %}<span style="color:var(--blue);font-size:11px;font-weight:700">→ En Route</span>
+          {% elif p.status == 'completed' %}<span style="color:var(--green);font-size:11px">✓ Done</span>
+          {% else %}<span style="color:var(--text-muted);font-size:11px">○ {{ p.status|replace('_',' ')|title }}</span>{% endif %}
+        </td>
+        <td class="td-num">{{ p.revenue }}</td>
+        <td style="color:{% if p.due == 'ASAP' %}var(--red){% else %}var(--text-secondary){% endif %};font-weight:{% if p.due == 'ASAP' %}700{% else %}400{% endif %}">{{ p.due }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% elif data.industry == 'plumbing' %}
+<div class="filter-bar">
+  <button class="filter-btn active" onclick="filt(this,'all')">All</button>
+  <button class="filter-btn" onclick="filt(this,'en_route')">En Route</button>
+  <button class="filter-btn" onclick="filt(this,'in_progress')">In Progress</button>
+  <button class="filter-btn" onclick="filt(this,'scheduled')">Scheduled</button>
+  <button class="filter-btn" onclick="filt(this,'completed')">Completed</button>
+</div>
+<div class="panel" style="padding:0;overflow:hidden;">
+  <table class="data-table" id="tbl">
+    <thead><tr><th>Job #</th><th>Customer</th><th>Type</th><th>Technician</th><th>Status</th><th>Revenue</th><th>ETA / Due</th></tr></thead>
+    <tbody>
+      {% for p in rows %}
+      <tr data-stage="{{ p.status }}">
+        <td class="td-mono" style="color:var(--text-muted)">{{ p.job }}</td>
+        <td class="td-primary">{{ p.customer }}</td>
+        <td style="color:var(--text-secondary)">{{ p.type }}</td>
+        <td style="color:var(--text-secondary)">{{ p.tech }}</td>
+        <td>
+          {% if p.status == 'in_progress' %}<span class="badge badge-connected" style="font-size:10px">● In Progress</span>
+          {% elif p.status == 'en_route' %}<span style="color:var(--blue);font-size:11px;font-weight:700">→ En Route</span>
+          {% elif p.status == 'completed' %}<span style="color:var(--green);font-size:11px">✓ Done</span>
+          {% elif p.status == 'pending' %}<span style="color:var(--orange);font-size:11px">⏳ Pending</span>
+          {% else %}<span style="color:var(--text-muted);font-size:11px">○ {{ p.status|replace('_',' ')|title }}</span>{% endif %}
+        </td>
+        <td class="td-num">{{ p.revenue }}</td>
+        <td style="color:{% if p.due == 'ASAP' %}var(--red){% else %}var(--text-secondary){% endif %};font-weight:{% if p.due == 'ASAP' %}700{% else %}400{% endif %}">{{ p.due }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% elif data.industry == 'restaurant' %}
+<div class="filter-bar">
+  <button class="filter-btn active" onclick="filt(this,'all')">All</button>
+  <button class="filter-btn" onclick="filt(this,'seated')">Seated</button>
+  <button class="filter-btn" onclick="filt(this,'confirmed')">Confirmed</button>
+  <button class="filter-btn" onclick="filt(this,'en_route')">En Route</button>
+  <button class="filter-btn" onclick="filt(this,'waitlisted')">Waitlisted</button>
+</div>
+<div class="panel" style="padding:0;overflow:hidden;">
+  <table class="data-table" id="tbl">
+    <thead><tr><th>Time</th><th>Party</th><th>Covers</th><th>Type</th><th>Section</th><th>Status</th><th>Notes</th></tr></thead>
+    <tbody>
+      {% for p in rows %}
+      <tr data-stage="{{ p.status }}">
+        <td class="td-mono">{{ p.time }}</td>
+        <td class="td-primary">{{ p.party }}</td>
+        <td style="text-align:center;font-weight:700;">{{ p.covers }}</td>
+        <td style="color:var(--text-secondary)">{{ p.type }}</td>
+        <td style="color:var(--text-secondary)">{{ p.section }}</td>
+        <td>
+          {% if p.status == 'seated' %}<span class="badge badge-connected" style="font-size:10px">● Seated</span>
+          {% elif p.status == 'en_route' %}<span style="color:var(--blue);font-size:11px;font-weight:700">→ Arriving</span>
+          {% elif p.status == 'waitlisted' %}<span style="color:var(--orange);font-size:11px">⏳ Waitlist</span>
+          {% else %}<span style="color:var(--text-muted);font-size:11px">○ {{ p.status|title }}</span>{% endif %}
+        </td>
+        <td style="color:var(--text-muted);font-size:11px">{{ p.notes or '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
 {% endif %}
 
 {% endblock %}

@@ -34,7 +34,7 @@ db = scoped_session(_Session)
 Base = declarative_base()
 Base.query = db.query_property()
 
-INDUSTRIES = ['agency', 'legal', 'construction', 'medical', 'brokerage']
+INDUSTRIES = ['agency', 'legal', 'construction', 'medical', 'brokerage', 'hvac', 'plumbing', 'restaurant']
 PLANS      = ['trial', 'starter', 'growth', 'enterprise']
 ROLES      = ['admin', 'member']
 

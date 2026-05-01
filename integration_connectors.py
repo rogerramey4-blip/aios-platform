@@ -1,6 +1,6 @@
 """
 AIOS Integration Connector Agents
-26 platform connectors — autonomous credential management, OAuth flows, and connection health.
+31 platform connectors — autonomous credential management, OAuth flows, and connection health.
 Each connector defines required fields, step-by-step setup instructions, and a live test_connection.
 """
 import os, json, logging, urllib.request, urllib.parse, urllib.error
@@ -800,6 +800,199 @@ def _test_monday(c):
         return _err(f'Connection error: {exc}')
 
 PLATFORMS['monday']['test'] = _test_monday
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Field Service (HVAC / Plumbing)
+# ══════════════════════════════════════════════════════════════════════════════
+
+_reg({'key': 'servicetitan', 'name': 'ServiceTitan', 'logo': '🔧', 'category': 'Field Service',
+      'auth_type': 'oauth2', 'industries': ['hvac', 'plumbing'],
+      'fields': [
+          {'key': 'client_id',     'label': 'Client ID',     'type': 'text',     'placeholder': 'your-client-id'},
+          {'key': 'client_secret', 'label': 'Client Secret', 'type': 'password', 'placeholder': 'your-client-secret'},
+          {'key': 'tenant_id',     'label': 'ServiceTitan Tenant ID', 'type': 'text', 'placeholder': '1234567',
+           'help': 'Found in ServiceTitan → Settings → Integrations → API'},
+      ],
+      'setup_steps': [
+          'ServiceTitan → Settings → Integrations → API Application Access',
+          'Create a new app — note your Client ID and Client Secret',
+          'Copy your Tenant ID from the same page',
+          'Enter credentials above, then click Authorize',
+      ],
+      'oauth': {
+          'authorize_url':    'https://auth.servicetitan.io/connect/authorize',
+          'token_url':        'https://auth.servicetitan.io/connect/token',
+          'scope':            'offline_access',
+          'client_id_field':  'client_id',
+          'client_secret_field': 'client_secret',
+      },
+      'test': None})
+
+def _test_servicetitan(c):
+    token = c.get('access_token', '')
+    tid   = c.get('tenant_id', '')
+    if not token or not tid: return _err('OAuth authorization required — click Authorize above')
+    s, _ = _get(f'https://api.servicetitan.io/job/v2/tenant/{tid}/jobs?pageSize=1',
+                headers=_bearer(token))
+    if s == 200: return _ok('Connected — ServiceTitan job API accessible')
+    if s == 401: return _err('Token expired — re-authorize to refresh')
+    return _err(f'ServiceTitan returned HTTP {s}')
+
+PLATFORMS['servicetitan']['test'] = _test_servicetitan
+
+
+_reg({'key': 'jobber', 'name': 'Jobber', 'logo': '📋', 'category': 'Field Service',
+      'auth_type': 'oauth2', 'industries': ['hvac', 'plumbing'],
+      'fields': [
+          {'key': 'client_id',     'label': 'Client ID',     'type': 'text',     'placeholder': 'your-client-id'},
+          {'key': 'client_secret', 'label': 'Client Secret', 'type': 'password', 'placeholder': 'your-client-secret',
+           'help': 'Jobber → Settings → Integrations → API → Create App'},
+      ],
+      'setup_steps': [
+          'Jobber → Settings → Manage Integrations → Jobber Developer Center',
+          'Create a new app — note your Client ID and Client Secret',
+          'Set redirect URI to match your AIOS OAuth callback URL',
+          'Enter credentials above, then click Authorize',
+      ],
+      'oauth': {
+          'authorize_url':    'https://api.getjobber.com/api/oauth/authorize',
+          'token_url':        'https://api.getjobber.com/api/oauth/token',
+          'scope':            'read_only',
+          'client_id_field':  'client_id',
+          'client_secret_field': 'client_secret',
+      },
+      'test': None})
+
+def _test_jobber(c):
+    token = c.get('access_token', '')
+    if not token: return _err('OAuth authorization required — click Authorize above')
+    payload = json.dumps({'query': '{ user { id name email } }'}).encode()
+    req = urllib.request.Request('https://api.getjobber.com/api/graphql', data=payload,
+                                  headers={'Content-Type': 'application/json',
+                                            'Authorization': f'Bearer {token}',
+                                            'X-JOBBER-GRAPHQL-VERSION': '2024-01-22'}, method='POST')
+    try:
+        with urllib.request.urlopen(req, timeout=10) as r:
+            body = json.loads(r.read().decode())
+            name = body.get('data', {}).get('user', {}).get('name', '')
+            if name:
+                return _ok(f'Connected — Jobber ({name})')
+            return _err('Jobber auth failed — re-authorize')
+    except urllib.error.HTTPError as e:
+        return _err(f'Token expired — re-authorize ({e.code})')
+    except Exception as exc:
+        return _err(f'Connection error: {exc}')
+
+PLATFORMS['jobber']['test'] = _test_jobber
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Restaurant
+# ══════════════════════════════════════════════════════════════════════════════
+
+_reg({'key': 'toast_pos', 'name': 'Toast POS', 'logo': '🍞', 'category': 'Restaurant POS',
+      'auth_type': 'api_key', 'industries': ['restaurant'],
+      'fields': [
+          {'key': 'client_id',     'label': 'Client ID',     'type': 'text',     'placeholder': 'your-toast-client-id'},
+          {'key': 'client_secret', 'label': 'Client Secret', 'type': 'password', 'placeholder': 'your-toast-client-secret'},
+          {'key': 'restaurant_guid', 'label': 'Restaurant GUID', 'type': 'text', 'placeholder': 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+           'help': 'Toast Dashboard → Integrations → API Access → Restaurant GUID'},
+      ],
+      'setup_steps': [
+          'Toast Dashboard → Admin → Integrations → Toast API',
+          'Create a new integration — get your Client ID and Secret',
+          'Copy your Restaurant GUID from the API Access page',
+          'Paste all three values above and click Save & Test',
+      ],
+      'test': None})
+
+def _test_toast(c):
+    cid    = c.get('client_id', '')
+    secret = c.get('client_secret', '')
+    rguid  = c.get('restaurant_guid', '')
+    if not cid or not secret or not rguid:
+        return _err('Client ID, Client Secret, and Restaurant GUID required')
+    s, body = _post('https://ws-api.toasttab.com/authentication/v1/authentication/login',
+                    data=json.dumps({'clientId': cid, 'clientSecret': secret,
+                                     'userAccessType': 'TOAST_MACHINE_CLIENT'}).encode(),
+                    headers={'Content-Type': 'application/json'})
+    if s == 200 and isinstance(body, dict) and body.get('token', {}).get('accessToken'):
+        return _ok('Connected — Toast POS authenticated')
+    if s == 401: return _err('Invalid credentials — check Client ID and Secret')
+    return _err(f'Toast POS returned HTTP {s}')
+
+PLATFORMS['toast_pos']['test'] = _test_toast
+
+
+_reg({'key': 'opentable', 'name': 'OpenTable', 'logo': '🍽️', 'category': 'Reservations',
+      'auth_type': 'api_key', 'industries': ['restaurant'],
+      'fields': [
+          {'key': 'client_id',     'label': 'API Client ID',     'type': 'text',     'placeholder': 'your-opentable-client-id'},
+          {'key': 'client_secret', 'label': 'API Client Secret', 'type': 'password', 'placeholder': 'your-opentable-client-secret'},
+          {'key': 'restaurant_id', 'label': 'Restaurant ID',     'type': 'text',     'placeholder': '12345',
+           'help': 'OpenTable for Restaurants → Settings → Integrations → Restaurant ID'},
+      ],
+      'setup_steps': [
+          'Go to OpenTable for Restaurants (restaurant.opentable.com)',
+          'Settings → Integrations → API Access → Request Developer Access',
+          'Once approved, copy your Client ID and Secret',
+          'Find your Restaurant ID under Settings → General',
+          'Paste all values above and click Save & Test',
+      ],
+      'test': None})
+
+def _test_opentable(c):
+    cid    = c.get('client_id', '')
+    secret = c.get('client_secret', '')
+    rid    = c.get('restaurant_id', '')
+    if not cid or not secret: return _err('Client ID and Client Secret required')
+    s, body = _post('https://platform.otqa.com/oauth2/token',
+                    data={'grant_type': 'client_credentials',
+                          'client_id': cid, 'client_secret': secret,
+                          'scope': 'basic_read'})
+    if s == 200 and isinstance(body, dict) and body.get('access_token'):
+        return _ok(f'Connected — OpenTable API authenticated (restaurant {rid or "—"})')
+    if s in (400, 401): return _err('Invalid credentials — check Client ID and Secret')
+    return _err(f'OpenTable returned HTTP {s}')
+
+PLATFORMS['opentable']['test'] = _test_opentable
+
+
+_reg({'key': 'yelp', 'name': 'Yelp Business', 'logo': '⭐', 'category': 'Reviews',
+      'auth_type': 'api_key', 'industries': ['hvac', 'plumbing', 'restaurant'],
+      'fields': [
+          {'key': 'api_key',     'label': 'Yelp Fusion API Key', 'type': 'password', 'placeholder': 'your-yelp-fusion-api-key'},
+          {'key': 'business_id', 'label': 'Yelp Business ID',    'type': 'text',     'placeholder': 'my-business-name-city',
+           'help': 'The URL slug from your Yelp business page, e.g., "cascade-climate-systems-dallas"'},
+      ],
+      'setup_steps': [
+          'Go to yelp.com/developers → Manage API Access → Create App',
+          'Note your API Key (Fusion API)',
+          'Find your Business ID from your Yelp business page URL: yelp.com/biz/YOUR-BUSINESS-ID',
+          'Paste both above and click Save & Test',
+      ],
+      'test': None})
+
+def _test_yelp(c):
+    key = c.get('api_key', '')
+    bid = c.get('business_id', '')
+    if not key: return _err('Yelp Fusion API Key required')
+    if bid:
+        s, body = _get(f'https://api.yelp.com/v3/businesses/{bid}', headers=_bearer(key))
+        if s == 200 and isinstance(body, dict):
+            name = body.get('name', bid)
+            return _ok(f'Connected — Yelp business found: {name}')
+        if s == 404: return _err('Business ID not found — check your Yelp URL slug')
+        if s == 401: return _err('Invalid API Key — check your Yelp Fusion credentials')
+        return _err(f'Yelp returned HTTP {s}')
+    s, _ = _get('https://api.yelp.com/v3/businesses/search?location=Dallas,TX&limit=1',
+                headers=_bearer(key))
+    if s == 200: return _ok('Connected — Yelp Fusion API key valid')
+    if s == 401: return _err('Invalid API Key — check your Yelp Fusion credentials')
+    return _err(f'Yelp returned HTTP {s}')
+
+PLATFORMS['yelp']['test'] = _test_yelp
 
 
 # ══════════════════════════════════════════════════════════════════════════════

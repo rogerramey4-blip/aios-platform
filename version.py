@@ -1,7 +1,12 @@
-VERSION    = 'v3.2.23'
+VERSION    = 'v3.2.24'
 BUILD_DATE = '2026-05-01'
 
 CHANGES = [
+    'New industry templates: HVAC, Plumbing, Restaurant — full BRIEF, PIPELINE, AGENTS, LOGS, USE_CASES, EMAILS data',
+    'Integration Connector Agents: 31 platforms (+ServiceTitan, Jobber, Toast POS, OpenTable, Yelp)',
+    'Dashboard extra_panes: tech_board (HVAC), job_board (Plumbing), service_timeline (Restaurant)',
+    'Pipeline page: hvac/plumbing/restaurant table views with status filters',
+    # v3.2.23
     'Integration Connector Agents: 26 platforms, encrypted creds, OAuth2 flows, live test (integration_connectors.py)',
     'TenantIntegration model: per-tenant encrypted credential storage with connection health state',
     'Integrations UI: /<industry>/integrations — card grid, setup wizard, Save & Test, OAuth redirect, disconnect',

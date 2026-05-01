@@ -184,6 +184,78 @@
     </tbody>
   </table>
 </div>
+
+{% elif data.extra_panes == 'hvac' %}
+<div class="panel">
+  <div class="panel-hdr"><div class="panel-title"><span class="panel-icon">🔧</span>TECHNICIAN DISPATCH BOARD</div><a href="/hvac/pipeline" class="panel-link">All Service Calls →</a></div>
+  <table class="health-table">
+    <thead><tr><th>Technician</th><th>Zone</th><th>Current Job</th><th>Status</th><th>ETA</th><th>Jobs</th></tr></thead>
+    <tbody>
+      {% for t in data.tech_board %}
+      <tr>
+        <td style="font-weight:600">{{ t.tech }}</td>
+        <td style="color:var(--text-secondary)">{{ t.zone }}</td>
+        <td style="color:var(--text-secondary);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ t.current_job }}</td>
+        <td>
+          {% if t.status == 'on_job' %}<span class="badge badge-connected" style="font-size:10px">● On Job</span>
+          {% elif t.status == 'en_route' %}<span style="color:var(--blue);font-size:11px;font-weight:700">→ En Route</span>
+          {% else %}<span style="color:var(--text-muted);font-size:11px">○ Available</span>{% endif %}
+        </td>
+        <td style="font-variant-numeric:tabular-nums;color:var(--text-secondary)">{{ t.eta }}</td>
+        <td style="text-align:center;font-weight:700;color:{% if t.jobs >= 4 %}var(--green){% elif t.jobs > 0 %}var(--text-primary){% else %}var(--text-muted){% endif %}">{{ t.jobs }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% elif data.extra_panes == 'plumbing' %}
+<div class="panel">
+  <div class="panel-hdr"><div class="panel-title"><span class="panel-icon">🚿</span>ACTIVE JOB BOARD</div><a href="/plumbing/pipeline" class="panel-link">All Jobs →</a></div>
+  <table class="health-table">
+    <thead><tr><th>Job #</th><th>Customer</th><th>Type</th><th>Technician</th><th>Status</th><th>ETA / Due</th></tr></thead>
+    <tbody>
+      {% for j in data.job_board %}
+      <tr>
+        <td style="font-weight:700;color:var(--text-muted);font-size:11px">{{ j.job }}</td>
+        <td style="font-weight:600">{{ j.customer }}</td>
+        <td style="color:var(--text-secondary);font-size:11px">{{ j.type }}</td>
+        <td style="color:var(--text-secondary)">{{ j.tech }}</td>
+        <td>
+          {% if j.status == 'on_job' %}<span class="badge badge-connected" style="font-size:10px">● On Job</span>
+          {% elif j.status == 'en_route' %}<span style="color:var(--blue);font-size:11px;font-weight:700">→ En Route</span>
+          {% elif j.status == 'emergency' %}<span style="color:var(--red);font-size:11px;font-weight:700">⚡ Emergency</span>
+          {% elif j.status == 'completed' %}<span style="color:var(--green);font-size:11px">✓ Done</span>
+          {% else %}<span style="color:var(--text-muted);font-size:11px">○ {{ j.status|title }}</span>{% endif %}
+        </td>
+        <td style="font-variant-numeric:tabular-nums;color:{% if j.eta == 'ASAP' %}var(--red){% else %}var(--text-secondary){% endif %};font-weight:{% if j.eta == 'ASAP' %}700{% else %}400{% endif %}">{{ j.eta }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% elif data.extra_panes == 'restaurant' %}
+<div class="panel">
+  <div class="panel-hdr"><div class="panel-title"><span class="panel-icon">🍽️</span>SERVICE TIMELINE — TODAY</div><a href="/restaurant/pipeline" class="panel-link">All Reservations →</a></div>
+  <div style="display:flex;flex-direction:column;gap:8px;padding:4px 0;">
+    {% for s in data.service_timeline %}
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div style="width:72px;font-size:11px;color:var(--text-muted);flex-shrink:0">{{ s.time }}</div>
+      <div style="width:120px;font-size:12px;font-weight:{% if s.status == 'active' %}700{% else %}400{% endif %};color:{% if s.status == 'active' %}var(--text-primary){% else %}var(--text-secondary){% endif %}">{{ s.service }}</div>
+      <div style="flex:1;background:var(--bg-tertiary);border-radius:4px;height:8px;overflow:hidden">
+        <div style="width:{{ s.pct }}%;height:100%;background:{% if s.status == 'active' %}var(--green){% elif s.status == 'upcoming' %}var(--blue){% else %}var(--border){% endif %};border-radius:4px;transition:width .3s"></div>
+      </div>
+      <div style="width:60px;text-align:right;font-size:11px;color:var(--text-secondary)">{% if s.covers %}{{ s.covers }} cvrs{% else %}—{% endif %}</div>
+      <div style="width:64px;flex-shrink:0">
+        {% if s.status == 'active' %}<span style="color:var(--green);font-size:10px;font-weight:700">● LIVE</span>
+        {% elif s.status == 'prep' %}<span style="color:var(--text-muted);font-size:10px">⟳ PREP</span>
+        {% else %}<span style="color:var(--blue);font-size:10px">◷ UPCOMING</span>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
 {% endif %}
 
 {% endblock %}
