@@ -10,7 +10,7 @@ except ImportError:
 
 from auth import (request_otp, verify_otp, check_authorized,
                   require_auth, require_admin, mask_email, ALLOWED_EMAILS)
-from models import init_db, Tenant, TenantUser, Document, Domain, db
+from models import init_db, Tenant, TenantUser, Document, Domain, TenantIntegration, db
 from security import init_security, audit
 from onboarding import onboard_bp
 from admin_bp import admin_bp
@@ -661,54 +661,174 @@ LOGS_DATA = {
 
 USE_CASES_DATA = {
     'agency': [
-        {'icon': '📧', 'title': 'Automated Client Reporting',  'desc': 'Monthly ROI reports compiled and emailed to each client automatically. Zero manual effort.',   'status': 'active',    'category': 'Reporting'},
-        {'icon': '⚠️', 'title': 'Churn Early Warning System',  'desc': 'Detects disengagement signals 30–45 days before churn. Triggers retention sequences.',        'status': 'active',    'category': 'Retention'},
-        {'icon': '📝', 'title': 'AI Proposal Generation',      'desc': 'Generates customized proposals from CRM data in under 60 seconds.',                            'status': 'active',    'category': 'Sales'},
-        {'icon': '📊', 'title': 'Agent Performance Dashboard', 'desc': 'Real-time visibility into every deployed agent uptime, task count, and error rate.',           'status': 'active',    'category': 'Operations'},
-        {'icon': '🔍', 'title': 'Lead Intelligence Scanner',   'desc': 'Scans directories for qualified prospects. Scores and routes to pipeline.',                    'status': 'active',    'category': 'Sales'},
-        {'icon': '📅', 'title': 'Contract Renewal Reminders',  'desc': 'Alerts 60/30/14 days before renewals. Drafts renewal emails automatically.',                  'status': 'available', 'category': 'Retention'},
-        {'icon': '💬', 'title': 'Client Onboarding Automation','desc': 'Guides new clients through setup with automated tasks and welcome sequences.',                 'status': 'available', 'category': 'Operations'},
-        {'icon': '📈', 'title': 'Upsell Opportunity Detector', 'desc': 'Monitors plan usage and recommends upsell conversations when clients hit capacity.',           'status': 'available', 'category': 'Sales'},
+        {'icon': '📧', 'title': 'Automated Client Reporting',   'desc': 'Monthly ROI reports compiled and emailed to each client automatically. Zero manual effort.',   'status': 'active',    'category': 'Reporting',
+         'roi': 'Eliminates 15–20 hrs/month of manual reporting', 'setup': '2–3 days',
+         'requirements': ['API access to each client\'s ad/analytics platforms', 'KPI and metric definitions agreed per client', 'Branded report template approved', 'Email distribution list per client'],
+         'integrations': ['Google Analytics & Ads API', 'Meta/Facebook Ads API', 'HubSpot or Salesforce CRM', 'Email delivery platform (SendGrid/Mailchimp)']},
+        {'icon': '⚠️', 'title': 'Churn Early Warning System',   'desc': 'Detects disengagement signals 30–45 days before churn. Triggers retention sequences.',        'status': 'active',    'category': 'Retention',
+         'roi': 'Saves 1 in 5 at-risk clients before cancellation', 'setup': '2–3 days',
+         'requirements': ['Login/session activity data per client account', 'Support ticket volume feed', 'Billing and payment history access', 'Contract renewal dates in CRM'],
+         'integrations': ['HubSpot or Salesforce CRM', 'Customer portal / client dashboard', 'Billing system (Stripe or QuickBooks)', 'Email automation platform']},
+        {'icon': '📝', 'title': 'AI Proposal Generation',       'desc': 'Generates customized proposals from CRM data in under 60 seconds.',                            'status': 'active',    'category': 'Sales',
+         'roi': 'Cut proposal creation from 4 hrs to under 10 min', 'setup': '1–2 days',
+         'requirements': ['Service catalog with pricing tiers defined', 'CRM contact and company data populated', 'Past proposal library (5–10 approved examples)', 'Proposal template/brand guide'],
+         'integrations': ['HubSpot or Salesforce CRM', 'Google Docs or Notion', 'PandaDoc or Proposify', 'E-signature tool (DocuSign)']},
+        {'icon': '📊', 'title': 'Agent Performance Dashboard',  'desc': 'Real-time visibility into every deployed agent uptime, task count, and error rate.',           'status': 'active',    'category': 'Operations',
+         'roi': 'Detect outages 2× faster; full portfolio visibility', 'setup': '1 day',
+         'requirements': ['Deployed agent API endpoints and credentials', 'Uptime and error log access per agent', 'Task completion metric definitions', 'Alert escalation contacts defined'],
+         'integrations': ['Internal agent runtime APIs', 'UptimeRobot or DataDog', 'Slack or email for alerts', 'AIOS agent registry']},
+        {'icon': '🔍', 'title': 'Lead Intelligence Scanner',    'desc': 'Scans directories for qualified prospects. Scores and routes to pipeline.',                    'status': 'active',    'category': 'Sales',
+         'roi': '3–5 qualified leads per day without manual research', 'setup': '1–2 days',
+         'requirements': ['Target industry, geography, and revenue criteria defined', 'ICP (Ideal Customer Profile) documented', 'Lead scoring rubric approved', 'CRM pipeline stage structure ready'],
+         'integrations': ['LinkedIn Sales Navigator or Apollo.io', 'ZoomInfo or Clearbit enrichment', 'CRM for lead injection (HubSpot/Salesforce)', 'Email sequence tool']},
+        {'icon': '📅', 'title': 'Contract Renewal Reminders',   'desc': 'Alerts 60/30/14 days before renewals. Drafts renewal emails automatically.',                  'status': 'available', 'category': 'Retention',
+         'roi': 'Reduce missed renewals to zero; 100% pipeline visibility', 'setup': '1 day',
+         'requirements': ['Contract database with start and end dates', 'Client contact info current in CRM', 'Renewal email templates approved', 'Escalation path for non-responsive clients'],
+         'integrations': ['CRM (HubSpot/Salesforce)', 'PandaDoc or DocuSign for contract delivery', 'Google Calendar or Outlook for reminders', 'Email automation platform']},
+        {'icon': '💬', 'title': 'Client Onboarding Automation', 'desc': 'Guides new clients through setup with automated tasks and welcome sequences.',                 'status': 'available', 'category': 'Operations',
+         'roi': 'Reduce onboarding time from 2 weeks to 3 days', 'setup': '2–3 days',
+         'requirements': ['Onboarding checklist and workflow documented', 'Client intake form built and tested', 'Welcome email and resource library ready', 'Success milestones and checkpoints defined'],
+         'integrations': ['CRM (HubSpot/Salesforce)', 'Monday.com, Asana, or ClickUp', 'Email automation platform', 'Client portal or knowledge base']},
+        {'icon': '📈', 'title': 'Upsell Opportunity Detector',  'desc': 'Monitors plan usage and recommends upsell conversations when clients hit capacity.',           'status': 'available', 'category': 'Sales',
+         'roi': 'Increase average contract value by 18–25%', 'setup': '2 days',
+         'requirements': ['Usage/capacity metrics per client account', 'Plan tier limits and overage rules defined', 'Upsell email and pitch deck templates ready', 'Sales owner per client assigned in CRM'],
+         'integrations': ['CRM (HubSpot/Salesforce)', 'Client portal/dashboard data feed', 'Email automation platform', 'Billing system (Stripe/QuickBooks)']},
     ],
     'legal': [
-        {'icon': '⏰', 'title': 'Deadline Sentinel',            'desc': 'Never miss a statute of limitations, filing deadline, or response due date.',                 'status': 'active',    'category': 'Compliance'},
-        {'icon': '📝', 'title': 'AI Motion Drafting',           'desc': 'Drafts motions and briefs from case notes in minutes, not hours.',                           'status': 'active',    'category': 'Litigation'},
-        {'icon': '🔍', 'title': 'Legal Research Automation',    'desc': 'Finds precedents and statutes across Westlaw and Casetext automatically.',                    'status': 'active',    'category': 'Research'},
-        {'icon': '💰', 'title': 'Automated Billing',            'desc': 'Converts time entries to invoices. Tracks realization rates and collections aging.',         'status': 'active',    'category': 'Billing'},
-        {'icon': '📡', 'title': 'PACER Docket Monitoring',      'desc': 'Instant alerts on docket activity across all active federal matters.',                       'status': 'active',    'category': 'Litigation'},
-        {'icon': '✉️', 'title': 'Client Communication AI',      'desc': 'Triages incoming client emails and drafts replies maintaining consistent tone.',              'status': 'active',    'category': 'Client Service'},
-        {'icon': '📋', 'title': 'Conflict Check Automation',    'desc': 'AI-powered conflict search on new matters against all client and opposing party history.',   'status': 'available', 'category': 'Compliance'},
-        {'icon': '📊', 'title': 'Matter Profitability Tracker', 'desc': 'Real-time P&L by matter. Identifies write-off risk before it happens.',                      'status': 'available', 'category': 'Billing'},
+        {'icon': '⏰', 'title': 'Deadline Sentinel',             'desc': 'Never miss a statute of limitations, filing deadline, or response due date.',                 'status': 'active',    'category': 'Compliance',
+         'roi': 'Eliminates malpractice risk from missed deadlines', 'setup': '1–2 days',
+         'requirements': ['Active matter list with jurisdiction codes', 'Docket and calendar system API or export access', 'Attorney assignment per matter in practice management system', 'Deadline calculation rules per jurisdiction loaded'],
+         'integrations': ['Clio, MyCase, or PracticePanther', 'Court-specific deadline calculators (CourtDrive)', 'Outlook or Google Calendar', 'SMS/email alert system']},
+        {'icon': '📝', 'title': 'AI Motion Drafting',            'desc': 'Drafts motions and briefs from case notes in minutes, not hours.',                           'status': 'active',    'category': 'Litigation',
+         'roi': 'Cut drafting time by 70%; associates handle 40% more matters', 'setup': '2–3 days',
+         'requirements': ['Case notes and fact chronology in structured format', 'Jurisdiction-specific motion templates (10–15 examples)', 'Court local rules and formatting requirements loaded', 'Attorney review workflow defined'],
+         'integrations': ['Clio or MyCase matter management', 'Westlaw or LexisNexis API', 'Microsoft Word or Google Docs', 'Practice management document storage']},
+        {'icon': '🔍', 'title': 'Legal Research Automation',     'desc': 'Finds precedents and statutes across Westlaw and Casetext automatically.',                    'status': 'active',    'category': 'Research',
+         'roi': '4-hour research tasks completed in under 45 minutes', 'setup': '1 day',
+         'requirements': ['Active Westlaw or LexisNexis credentials with API access', 'Research query templates or issue checklist per practice area', 'Matter-specific jurisdiction list', 'Memo output format/template approved'],
+         'integrations': ['Westlaw Edge API or LexisNexis API', 'Clio or MyCase matter management', 'Document management (NetDocuments/iManage)', 'Word/Google Docs for memo output']},
+        {'icon': '💰', 'title': 'Automated Billing',             'desc': 'Converts time entries to invoices. Tracks realization rates and collections aging.',         'status': 'active',    'category': 'Billing',
+         'roi': '100% billing capture; reduce A/R days by 35%', 'setup': '2 days',
+         'requirements': ['Time entry data feed from timekeeping system', 'Billing rate table per attorney, matter type, and client', 'Client billing preferences (LEDES, flat-fee, retainer) configured', 'Invoice approval workflow defined'],
+         'integrations': ['Clio, TimeSolv, or Bill4Time', 'QuickBooks or Xero', 'Client payment portal (LawPay)', 'Email delivery for invoice distribution']},
+        {'icon': '📡', 'title': 'PACER Docket Monitoring',       'desc': 'Instant alerts on docket activity across all active federal matters.',                       'status': 'active',    'category': 'Litigation',
+         'roi': 'Real-time alerts vs. manual PACER checks 1–2×/week', 'setup': '1 day',
+         'requirements': ['PACER account credentials with API access', 'List of active federal matter case numbers', 'Attorney and paralegal alert contact list', 'Docket event classification rules (motions, orders, deadlines)'],
+         'integrations': ['PACER API or CourtAlert', 'Clio or MyCase for matter linking', 'Email and SMS notification system', 'Outlook or Google Calendar for deadline creation']},
+        {'icon': '✉️', 'title': 'Client Communication AI',       'desc': 'Triages incoming client emails and drafts replies maintaining consistent tone.',              'status': 'active',    'category': 'Client Service',
+         'roi': 'Saves 3 hrs/day per attorney on email triage', 'setup': '1–2 days',
+         'requirements': ['Email account access (read and draft permissions)', 'Active matter-to-client mapping in CRM', 'Communication tone and style guidelines documented', 'Response urgency classification rules defined'],
+         'integrations': ['Outlook or Gmail API', 'Clio or MyCase CRM', 'Practice management matter lookup', 'SMS platform for urgent escalations']},
+        {'icon': '📋', 'title': 'Conflict Check Automation',     'desc': 'AI-powered conflict search on new matters against all client and opposing party history.',   'status': 'available', 'category': 'Compliance',
+         'roi': 'Conflict checks in seconds vs. 30–45 min manual process', 'setup': '2–3 days',
+         'requirements': ['Full client and opposing party database export', 'New matter intake form with all party names collected', 'Historical matter archive (minimum 3 years)', 'State ethics rules and conflict standards reference loaded'],
+         'integrations': ['Clio or MyCase conflict module', 'CRM contact database', 'State bar ethics database', 'New matter intake form system']},
+        {'icon': '📊', 'title': 'Matter Profitability Tracker',  'desc': 'Real-time P&L by matter. Identifies write-off risk before it happens.',                      'status': 'available', 'category': 'Billing',
+         'roi': 'Identify unprofitable matters early; improve firm-wide realization rate by 12%', 'setup': '2–3 days',
+         'requirements': ['Time and billing data per matter with write-off history', 'Fixed-fee vs. hourly matter type designation', 'Overhead allocation model approved by firm management', 'Profitability threshold alerts defined per practice area'],
+         'integrations': ['Clio or TimeSolv billing data', 'QuickBooks or Xero financials', 'Practice management system', 'Reporting dashboard (Power BI or custom)']},
     ],
     'construction': [
-        {'icon': '📋', 'title': 'Permit Expiry Automation',     'desc': 'Auto-tracks permit expiry dates and drafts renewal packages 30 days early.',                 'status': 'active',    'category': 'Compliance'},
-        {'icon': '💰', 'title': 'Budget Variance Monitoring',   'desc': 'Monitors budget variance per project. Alerts the moment threshold is crossed.',              'status': 'active',    'category': 'Finance'},
-        {'icon': '⛅', 'title': 'Weather Schedule Impact',      'desc': 'Pulls 10-day forecasts, calculates project delay impact, generates revised schedules.',       'status': 'active',    'category': 'Operations'},
-        {'icon': '📝', 'title': 'Automated RFI Drafting',       'desc': 'Generates RFI responses from spec library, reducing response time from days to hours.',      'status': 'active',    'category': 'Documentation'},
-        {'icon': '🔧', 'title': 'Subcontractor Coordination',   'desc': 'Daily schedule confirmations, follow-ups on late deliverables, performance scoring.',        'status': 'active',    'category': 'Operations'},
-        {'icon': '⚠️', 'title': 'Safety Incident Monitor',      'desc': 'Reviews site logs for hazard language. Identifies near-misses before they become incidents.', 'status': 'active',    'category': 'Safety'},
-        {'icon': '📊', 'title': 'Change Order Analytics',       'desc': 'Tracks all change orders, approvals, and budget impact across every project.',               'status': 'available', 'category': 'Finance'},
-        {'icon': '🗓️', 'title': 'Draw Schedule Tracker',        'desc': 'Monitors payment milestones, tracks amounts drawn, and projects cash flow.',                 'status': 'available', 'category': 'Finance'},
+        {'icon': '📋', 'title': 'Permit Expiry Automation',      'desc': 'Auto-tracks permit expiry dates and drafts renewal packages 30 days early.',                 'status': 'active',    'category': 'Compliance',
+         'roi': 'Eliminates stop-work orders from expired permits', 'setup': '1 day',
+         'requirements': ['Active permit list with permit numbers and expiry dates', 'City/county permit portal login credentials per jurisdiction', 'Email and fax contacts at each permit office', 'Renewal document templates per permit type'],
+         'integrations': ['Procore or Buildertrend compliance module', 'Email/fax platform', 'County permit portal API or web access', 'Calendar system for renewal milestones']},
+        {'icon': '💰', 'title': 'Budget Variance Monitoring',    'desc': 'Monitors budget variance per project. Alerts the moment threshold is crossed.',              'status': 'active',    'category': 'Finance',
+         'roi': 'Catch cost overruns 2 weeks earlier than manual review', 'setup': '2–3 days',
+         'requirements': ['Project cost codes and budget baseline per project', 'Daily or weekly expense feed from accounting system', 'Variance threshold policy defined per project tier', 'Project manager alert contacts per project'],
+         'integrations': ['Sage 300 CRE, Viewpoint, or QuickBooks', 'Procore cost management module', 'Email and SMS alert system', 'Power BI or Procore analytics dashboard']},
+        {'icon': '⛅', 'title': 'Weather Schedule Impact',       'desc': 'Pulls 10-day forecasts, calculates project delay impact, generates revised schedules.',       'status': 'active',    'category': 'Operations',
+         'roi': 'Reduce weather-related schedule surprises by 80%', 'setup': '1 day',
+         'requirements': ['Project schedule with all outdoor activities flagged', 'Site GPS coordinates per active project', 'Crew and equipment calendar access', 'Weather impact thresholds per activity type defined (rain >0.25", wind >25mph, temp <32°F)'],
+         'integrations': ['OpenWeatherMap or Weather.gov API', 'Procore or MS Project schedule', 'Email/SMS notification system', 'Google Calendar for revised schedule distribution']},
+        {'icon': '📝', 'title': 'Automated RFI Drafting',        'desc': 'Generates RFI responses from spec library, reducing response time from days to hours.',      'status': 'active',    'category': 'Documentation',
+         'roi': 'Reduce RFI response time from 3 days to 4 hours', 'setup': '2–3 days',
+         'requirements': ['Current project specs and drawings uploaded (PDF format)', 'Historical RFI library with at least 20 resolved examples', 'Architect and engineer contact directory', 'RFI numbering and log system access'],
+         'integrations': ['Procore RFI module', 'SharePoint, Dropbox, or Box for drawing storage', 'Email platform for distribution', 'PDF processing and spec parsing']},
+        {'icon': '🔧', 'title': 'Subcontractor Coordination',    'desc': 'Daily schedule confirmations, follow-ups on late deliverables, performance scoring.',        'status': 'active',    'category': 'Operations',
+         'roi': '90% reduction in missed schedule confirmations', 'setup': '1–2 days',
+         'requirements': ['Subcontractor contact list with trade and schedule assignments', 'Baseline project schedule with sub milestones', 'Delivery and milestone log access', 'Performance scoring criteria defined (on-time %, quality, communication)'],
+         'integrations': ['Procore or Buildertrend subcontractor module', 'Email and SMS communication system', 'Project scheduling tool (MS Project/Procore)', 'Performance tracking dashboard']},
+        {'icon': '⚠️', 'title': 'Safety Incident Monitor',       'desc': 'Reviews site logs for hazard language. Identifies near-misses before they become incidents.', 'status': 'active',    'category': 'Safety',
+         'roi': '40% reduction in recordable incidents; OSHA compliance assured', 'setup': '1 day',
+         'requirements': ['Daily site log or daily report feed (text or PDF)', 'OSHA hazard language and classification reference loaded', 'Field staff and safety officer alert contacts', 'Incident severity escalation matrix defined'],
+         'integrations': ['Procore Daily Logs', 'iAuditor or SafetyCulture', 'Email and SMS alert system', 'OSHA incident reporting system']},
+        {'icon': '📊', 'title': 'Change Order Analytics',        'desc': 'Tracks all change orders, approvals, and budget impact across every project.',               'status': 'available', 'category': 'Finance',
+         'roi': 'Full change order visibility across all projects in real time', 'setup': '2 days',
+         'requirements': ['All executed change orders with approval dates and signatories', 'Original contract value per project', 'Budget cost codes affected by each change order', 'CO approval workflow and authority limits defined'],
+         'integrations': ['Procore Change Events module', 'Sage 300 or Viewpoint financials', 'DocuSign for approval tracking', 'Reporting dashboard (Power BI or Procore Analytics)']},
+        {'icon': '🗓️', 'title': 'Draw Schedule Tracker',         'desc': 'Monitors payment milestones, tracks amounts drawn, and projects cash flow.',                 'status': 'available', 'category': 'Finance',
+         'roi': 'Project cash flow 90 days out with >95% accuracy', 'setup': '2 days',
+         'requirements': ['Draw schedule per project with milestone and percentage triggers', 'Lender and owner contact information', 'Payment history log with dates and amounts', 'Retainage and lien waiver requirements per contract'],
+         'integrations': ['Procore or Buildertrend draw module', 'Banking or accounting system (Sage/QuickBooks)', 'DocuSign for lien waiver execution', 'Cash flow forecasting dashboard']},
     ],
     'medical': [
-        {'icon': '📋', 'title': 'Prior Authorization Automation','desc': 'Submits, tracks, and re-submits prior auth requests across all major payers.',             'status': 'active',    'category': 'Revenue Cycle'},
-        {'icon': '🔍', 'title': 'Pre-Claim Scrubbing',           'desc': 'Reviews every claim for 47 denial triggers before submission. Reduces denials ~35%.',       'status': 'active',    'category': 'Revenue Cycle'},
-        {'icon': '📣', 'title': 'Patient Recall Campaign',       'desc': 'Identifies overdue patients and sends personalized reminders with booking links.',           'status': 'active',    'category': 'Patient Engagement'},
-        {'icon': '📝', 'title': 'Denial Appeal Generator',       'desc': 'Drafts appeal letters with supporting documentation based on denial reason codes.',         'status': 'active',    'category': 'Revenue Cycle'},
-        {'icon': '✅', 'title': 'Insurance Pre-Verification',    'desc': 'Confirms coverage and co-pay 24hrs before each appointment.',                               'status': 'active',    'category': 'Operations'},
-        {'icon': '🩺', 'title': 'SOAP Notes Drafting',           'desc': 'Generates clinical note drafts from voice input. Saves 6–8 minutes per encounter.',        'status': 'active',    'category': 'Clinical'},
-        {'icon': '📊', 'title': 'A/R Aging Monitor',             'desc': 'Tracks receivables daily. Escalates accounts approaching write-off thresholds.',            'status': 'available', 'category': 'Revenue Cycle'},
-        {'icon': '💬', 'title': 'Patient Satisfaction Surveys',  'desc': 'Sends post-visit surveys automatically. Aggregates scores and flags negatives.',           'status': 'available', 'category': 'Patient Engagement'},
+        {'icon': '📋', 'title': 'Prior Authorization Automation', 'desc': 'Submits, tracks, and re-submits prior auth requests across all major payers.',             'status': 'active',    'category': 'Revenue Cycle',
+         'roi': 'Reduce auth denial rate by 40%; save 2 hrs/day per coordinator', 'setup': '3–5 days',
+         'requirements': ['Active payer portal credentials (Availity + payer-specific logins)', 'Diagnosis and procedure codes per patient encounter', 'Provider NPI and group NPI numbers', 'Auth submission criteria per payer and procedure type'],
+         'integrations': ['Epic, Athena, or eClinicalWorks EHR', 'Availity and payer-specific portals', 'Practice management system', 'Fax platform for payers without portal access']},
+        {'icon': '🔍', 'title': 'Pre-Claim Scrubbing',            'desc': 'Reviews every claim for 47 denial triggers before submission. Reduces denials ~35%.',       'status': 'active',    'category': 'Revenue Cycle',
+         'roi': '35% reduction in first-pass denials; accelerated payment cycle', 'setup': '2–3 days',
+         'requirements': ['Clearinghouse API credentials (Availity or Change Healthcare)', 'Current CPT and ICD-10 code set with payer-specific edits', 'Payer LCD and NCD coverage policy library', 'Denial reason code mapping from prior 6 months'],
+         'integrations': ['Availity or Change Healthcare clearinghouse', 'EHR billing module', 'CMS payer LCD/NCD database', 'Practice management system']},
+        {'icon': '📣', 'title': 'Patient Recall Campaign',        'desc': 'Identifies overdue patients and sends personalized reminders with booking links.',           'status': 'active',    'category': 'Patient Engagement',
+         'roi': '22% increase in recall appointment bookings', 'setup': '2 days',
+         'requirements': ['Patient appointment history in EHR with last-seen dates', 'Preventive and recall schedule defined per service type and patient profile', 'Patient contact preferences (SMS or email opt-in status)', 'Online booking link or scheduling system access'],
+         'integrations': ['Epic, Athena, or eClinicalWorks EHR', 'Twilio or Klara for SMS', 'Email marketing platform', 'Online scheduling tool (Zocdoc/Phreesia)']},
+        {'icon': '📝', 'title': 'Denial Appeal Generator',        'desc': 'Drafts appeal letters with supporting documentation based on denial reason codes.',         'status': 'active',    'category': 'Revenue Cycle',
+         'roi': 'Overturn 45–60% of appealable denials vs. 20% manual average', 'setup': '2–3 days',
+         'requirements': ['EOB and remittance data feed with denial reason codes', 'Clinical documentation access for medical necessity support', 'Payer appeal address, fax, and deadline directory', 'Appeal letter templates by denial category (medical necessity, coding, auth)'],
+         'integrations': ['EHR for clinical documentation retrieval', 'Practice management or billing system', 'Fax and certified mail platform', 'Clearinghouse for electronic appeal submission']},
+        {'icon': '✅', 'title': 'Insurance Pre-Verification',     'desc': 'Confirms coverage and co-pay 24hrs before each appointment.',                               'status': 'active',    'category': 'Operations',
+         'roi': 'Eliminate day-of insurance surprises; reduce no-auth denials by 70%', 'setup': '1–2 days',
+         'requirements': ['Scheduled appointment feed (minimum 48 hrs in advance)', 'Patient insurance ID and payer information in EHR', 'Eligibility API access or portal credentials', 'Co-pay and deductible communication workflow defined'],
+         'integrations': ['Availity or Change Healthcare eligibility API', 'EHR appointment scheduler', 'Patient communication platform (Klara/Luma Health)', 'Practice management system']},
+        {'icon': '🩺', 'title': 'SOAP Notes Drafting',            'desc': 'Generates clinical note drafts from voice input. Saves 6–8 minutes per encounter.',        'status': 'active',    'category': 'Clinical',
+         'roi': 'Save 6–8 min per encounter; cut documentation backlog by 90%', 'setup': '3–5 days',
+         'requirements': ['Voice recording capability or real-time transcription input at point of care', 'Provider-specific SOAP note template per specialty', 'EHR note entry API or direct integration', 'Provider review and sign-off workflow defined'],
+         'integrations': ['Epic, Athena, or eClinicalWorks EHR API', 'Nuance DAX or OpenAI Whisper transcription', 'Clinical note template library', 'Provider mobile or desktop interface']},
+        {'icon': '📊', 'title': 'A/R Aging Monitor',              'desc': 'Tracks receivables daily. Escalates accounts approaching write-off thresholds.',            'status': 'available', 'category': 'Revenue Cycle',
+         'roi': 'Reduce days in A/R from 45 to under 30; recover 15–20% more revenue', 'setup': '1–2 days',
+         'requirements': ['Billing system A/R aging report API or scheduled export', 'Write-off threshold policy by payer and amount tier', 'Collection escalation contact list and workflow', 'Payment plan and settlement authority rules defined'],
+         'integrations': ['Kareo, AdvancedMD, or Athena billing', 'Collection agency API', 'Email and phone alert system', 'Practice management dashboard']},
+        {'icon': '💬', 'title': 'Patient Satisfaction Surveys',   'desc': 'Sends post-visit surveys automatically. Aggregates scores and flags negatives.',           'status': 'available', 'category': 'Patient Engagement',
+         'roi': '3× more reviews; flag dissatisfaction before public complaints', 'setup': '1 day',
+         'requirements': ['Post-appointment trigger from EHR scheduler (discharge event)', 'Patient contact info with SMS and email consent status', 'Survey questions approved by practice leadership', 'Negative response escalation threshold and routing defined'],
+         'integrations': ['EHR appointment scheduler', 'Qualtrics, SurveyMonkey, or Press Ganey', 'Google Business and Healthgrades review prompts', 'Email and SMS delivery platform']},
     ],
     'brokerage': [
-        {'icon': '🎯', 'title': 'Lead Scoring & Routing',        'desc': 'Scores inbound leads by conversion likelihood and routes to the best-fit agent.',           'status': 'active',    'category': 'Lead Management'},
-        {'icon': '📊', 'title': 'Listing Performance Optimizer', 'desc': 'Analyzes DOM, views, and showings. Recommends price changes and description rewrites.',      'status': 'active',    'category': 'Listings'},
-        {'icon': '📈', 'title': 'Market Report Automation',      'desc': 'Weekly market condition reports per zip code, auto-distributed to all agents.',              'status': 'active',    'category': 'Market Intel'},
-        {'icon': '✅', 'title': 'Transaction Deadline Tracking', 'desc': 'Monitors all contingency deadlines. Never miss an inspection or appraisal date.',           'status': 'active',    'category': 'Transactions'},
-        {'icon': '📅', 'title': 'Showing Coordination',          'desc': 'Automates showing requests between all parties. Confirms and reschedules automatically.',   'status': 'active',    'category': 'Operations'},
-        {'icon': '📝', 'title': 'Listing Description AI',        'desc': 'Generates compelling MLS listing descriptions in under 30 seconds.',                        'status': 'active',    'category': 'Listings'},
-        {'icon': '📉', 'title': 'Expired Listing Recovery',      'desc': 'Identifies expired competitor listings as prospecting opportunities.',                       'status': 'available', 'category': 'Lead Management'},
-        {'icon': '💰', 'title': 'Commission Forecasting',        'desc': 'Projects forward commission revenue from pipeline. Tracks against monthly targets.',        'status': 'available', 'category': 'Finance'},
+        {'icon': '🎯', 'title': 'Lead Scoring & Routing',         'desc': 'Scores inbound leads by conversion likelihood and routes to the best-fit agent.',           'status': 'active',    'category': 'Lead Management',
+         'roi': '35% increase in lead-to-showing conversion rate', 'setup': '1–2 days',
+         'requirements': ['Inbound lead source API or webhook from all portals', 'Agent profile data (specialty, zip coverage, capacity, conversion history)', 'Lead scoring criteria and ICP defined', 'CRM pipeline stage structure configured'],
+         'integrations': ['Follow Up Boss, kvCORE, or BoomTown CRM', 'Zillow Premier Agent, Realtor.com, and website lead capture', 'Twilio or Dialpad for instant lead response', 'MLS for property match alerts']},
+        {'icon': '📊', 'title': 'Listing Performance Optimizer',  'desc': 'Analyzes DOM, views, and showings. Recommends price changes and description rewrites.',      'status': 'active',    'category': 'Listings',
+         'roi': 'Reduce average DOM by 22%; increase list-price-to-sale ratio', 'setup': '2 days',
+         'requirements': ['MLS data API access (showing count, portal views, DOM, saves)', 'Active listing inventory with listing agent assignment', 'Comparable sales data by zip and price band', 'Price reduction approval workflow and agent contact'],
+         'integrations': ['NTREIS or local MLS API', 'ShowingTime for showing data', 'CRM for listing management', 'Zillow/Realtor.com listing analytics feed']},
+        {'icon': '📈', 'title': 'Market Report Automation',       'desc': 'Weekly market condition reports per zip code, auto-distributed to all agents.',              'status': 'active',    'category': 'Market Intel',
+         'roi': 'Agents deliver branded market intel with zero manual prep', 'setup': '1–2 days',
+         'requirements': ['MLS data access (sold, active, pending by zip and price range)', 'Agent email distribution list by territory/specialty', 'Report branding template and logo assets', 'Frequency and delivery schedule approved by broker'],
+         'integrations': ['MLS data API (NTREIS/CRMLS/MFRMLS)', 'Email marketing platform (Mailchimp/Constant Contact)', 'CRM for audience segmentation', 'PDF generation for client-facing versions']},
+        {'icon': '✅', 'title': 'Transaction Deadline Tracking',  'desc': 'Monitors all contingency deadlines. Never miss an inspection or appraisal date.',           'status': 'active',    'category': 'Transactions',
+         'roi': 'Zero missed contingency deadlines; eliminate deal-killing errors', 'setup': '1–2 days',
+         'requirements': ['Executed purchase contract with all contingency dates extracted', 'Transaction coordinator assignment per file', 'All party contact info (agents, lender, title, TC)', 'Escalation rules for approaching deadlines (72hr, 24hr, same-day alerts)'],
+         'integrations': ['DocuSign or Dotloop for contract data extraction', 'Dotloop, SkySlope, or Brokermint TC platform', 'Google Calendar or Outlook for deadline sync', 'Email and SMS notification system']},
+        {'icon': '📅', 'title': 'Showing Coordination',           'desc': 'Automates showing requests between all parties. Confirms and reschedules automatically.',   'status': 'active',    'category': 'Operations',
+         'roi': '90% of showings confirmed without agent involvement', 'setup': '1 day',
+         'requirements': ['Listing access instructions and lockbox codes per property', 'Owner or occupant contact preferences and blackout times', 'Available showing windows per listing in ShowingTime', 'Feedback request templates approved'],
+         'integrations': ['ShowingTime API', 'Supra or SentriLock lockbox system', 'CRM for showing log', 'Email and SMS for confirmation and feedback']},
+        {'icon': '📝', 'title': 'Listing Description AI',         'desc': 'Generates compelling MLS listing descriptions in under 30 seconds.',                        'status': 'active',    'category': 'Listings',
+         'roi': 'Cut listing prep time by 2 hrs; improve search ranking with keyword optimization', 'setup': '1 day',
+         'requirements': ['Property data input (beds, baths, sq ft, features, upgrades)', 'Photo set available for visual feature extraction', 'Brand voice and style guide documented', 'MLS character limits and compliance rules by board'],
+         'integrations': ['MLS listing entry platform (Matrix/Paragon/Flexmls)', 'Google Drive or Dropbox for photo storage', 'CRM for listing record', 'Listing management tool (Canva for social distribution)']},
+        {'icon': '📉', 'title': 'Expired Listing Recovery',       'desc': 'Identifies expired competitor listings as prospecting opportunities.',                       'status': 'available', 'category': 'Lead Management',
+         'roi': '2–4 listing appointments per month from automated outreach', 'setup': '2 days',
+         'requirements': ['MLS expired listing feed by target zip code and radius', 'Agent capacity list for outreach assignment', 'Expired listing outreach sequence templates (call, text, letter)', 'DNC list cross-reference for compliance'],
+         'integrations': ['MLS API with expired filter', 'CRM for prospect tracking (Follow Up Boss/kvCORE)', 'Dialpad or Ring Central for power dialing queue', 'Direct mail platform for letter campaigns']},
+        {'icon': '💰', 'title': 'Commission Forecasting',         'desc': 'Projects forward commission revenue from pipeline. Tracks against monthly targets.',        'status': 'available', 'category': 'Finance',
+         'roi': '90-day forward revenue visibility; eliminate month-end surprises', 'setup': '2–3 days',
+         'requirements': ['Pipeline transaction list with close probability and projected close date', 'Agent roster with commission split schedules per transaction type', 'Monthly and quarterly revenue targets by agent and brokerage', 'Historical close rate by pipeline stage for probability calibration'],
+         'integrations': ['CRM pipeline (Follow Up Boss/kvCORE)', 'TC platform for close date confirmation (SkySlope/Dotloop)', 'QuickBooks or accounting system for actuals', 'Reporting dashboard (custom or Power BI)']},
     ],
 }
 
@@ -919,6 +1039,110 @@ def agents(industry):
 def use_cases(industry):
     return _page(industry, 'use_cases', 'pages/use_cases.html',
                  use_cases=USE_CASES_DATA.get(industry, []))
+
+
+# ── Integrations ──────────────────────────────────────────────────────────────
+
+@app.route('/<industry>/integrations')
+@require_auth
+def integrations_page(industry):
+    from integration_connectors import IntegrationAgent
+    cfg = INDUSTRIES.get(industry)
+    if not cfg:
+        return redirect('/')
+    tenant_id = session.get('tenant_id', '_admin')
+    agent = IntegrationAgent(tenant_id)
+    platforms = agent.get_status_list(industry=industry)
+    categories = sorted({p['category'] for p in platforms})
+    return _page(industry, 'integrations', 'pages/integrations.html',
+                 platforms=platforms, categories=categories)
+
+
+@app.route('/api/integrations/<platform_key>/connect', methods=['POST'])
+@require_auth
+def api_integration_connect(platform_key):
+    from integration_connectors import IntegrationAgent, PLATFORMS
+    if platform_key not in PLATFORMS:
+        return jsonify({'ok': False, 'msg': f'Unknown platform: {platform_key}'}), 404
+    tenant_id = session.get('tenant_id', '_admin')
+    creds = {k: v for k, v in request.form.items() if k != 'csrf_token'}
+    agent = IntegrationAgent(tenant_id)
+    email = session.get('aios_email') or session.get('tenant_email', '')
+    result = agent.connect(platform_key, creds, connected_by=email)
+    return jsonify(result)
+
+
+@app.route('/api/integrations/<platform_key>/test', methods=['POST'])
+@require_auth
+def api_integration_test(platform_key):
+    from integration_connectors import IntegrationAgent, PLATFORMS
+    if platform_key not in PLATFORMS:
+        return jsonify({'ok': False, 'msg': f'Unknown platform: {platform_key}'}), 404
+    tenant_id = session.get('tenant_id', '_admin')
+    agent = IntegrationAgent(tenant_id)
+    result = agent.test(platform_key)
+    return jsonify(result)
+
+
+@app.route('/api/integrations/<platform_key>/disconnect', methods=['POST'])
+@require_auth
+def api_integration_disconnect(platform_key):
+    from integration_connectors import IntegrationAgent
+    tenant_id = session.get('tenant_id', '_admin')
+    IntegrationAgent(tenant_id).disconnect(platform_key)
+    return jsonify({'ok': True})
+
+
+@app.route('/api/integrations/<platform_key>/oauth/start')
+@require_auth
+def api_integration_oauth_start(platform_key):
+    from integration_connectors import IntegrationAgent, PLATFORMS, oauth_authorize_url
+    p = PLATFORMS.get(platform_key)
+    if not p or 'oauth' not in p:
+        return jsonify({'ok': False, 'msg': 'Platform does not support OAuth2'}), 400
+    tenant_id = session.get('tenant_id', '_admin')
+    agent = IntegrationAgent(tenant_id)
+    rec = agent._load(platform_key)
+    stored_creds = agent._creds(rec)
+    redirect_uri = url_for('api_integration_oauth_callback', platform_key=platform_key, _external=True)
+    state = secrets.token_hex(16)
+    session[f'oauth_state_{platform_key}'] = state
+    auth_url = oauth_authorize_url(platform_key, redirect_uri, state, stored_creds=stored_creds)
+    if not auth_url:
+        return jsonify({'ok': False, 'msg': 'Client ID not configured — save credentials first'}), 400
+    return redirect(auth_url)
+
+
+@app.route('/api/integrations/<platform_key>/oauth/callback')
+@require_auth
+def api_integration_oauth_callback(platform_key):
+    from integration_connectors import IntegrationAgent, PLATFORMS, oauth_exchange_code
+    code  = request.args.get('code', '')
+    state = request.args.get('state', '')
+    if not code:
+        return '<h2 style="color:red">OAuth error — no code returned.</h2>', 400
+    expected_state = session.pop(f'oauth_state_{platform_key}', '')
+    if state and expected_state and state != expected_state:
+        return '<h2 style="color:red">OAuth state mismatch — possible CSRF.</h2>', 400
+    tenant_id = session.get('tenant_id', '_admin')
+    agent = IntegrationAgent(tenant_id)
+    rec = agent._load(platform_key)
+    stored_creds = agent._creds(rec)
+    redirect_uri = url_for('api_integration_oauth_callback', platform_key=platform_key, _external=True)
+    tokens = oauth_exchange_code(platform_key, code, redirect_uri, stored_creds=stored_creds)
+    if tokens.get('error'):
+        return (f'<html><body style="background:#0a0e14;color:#e6edf3;padding:32px">'
+                f'<h2 style="color:red">Token exchange failed: {tokens["error"]}</h2></body></html>'), 500
+    agent.store_oauth_tokens(platform_key, tokens, base_creds=stored_creds)
+    p = PLATFORMS.get(platform_key, {})
+    industry = session.get('tenant_industry', 'agency')
+    return (f'<html><head><meta http-equiv="refresh" content="2;url=/{industry}/integrations"></head>'
+            f'<body style="background:#0a0e14;color:#e6edf3;font-family:sans-serif;padding:32px;text-align:center">'
+            f'<div style="font-size:40px;margin-bottom:16px">✅</div>'
+            f'<h2 style="color:#3fb950">{p.get("name","Platform")} connected successfully!</h2>'
+            f'<p style="color:#8b949e">Redirecting back to Integrations…</p>'
+            f'</body></html>')
+
 
 @app.route('/<industry>/deploy')
 @require_auth

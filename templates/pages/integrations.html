@@ -1,0 +1,298 @@
+{% extends "base.html" %}
+{% block main %}
+<style>
+  /* ── Layout ─────────────────────────────────────── */
+  .int-toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:24px;}
+  .int-filter-btn{padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-secondary);font-size:12px;font-weight:600;cursor:pointer;transition:all var(--ease);}
+  .int-filter-btn:hover,.int-filter-btn.active{background:var(--gold);color:#0d1117;border-color:var(--gold);}
+  .int-stats{margin-left:auto;font-size:12px;color:var(--text-muted);}
+  .int-stats span{color:var(--green);font-weight:700;}
+
+  /* ── Grid ───────────────────────────────────────── */
+  .int-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;}
+
+  /* ── Card ───────────────────────────────────────── */
+  .int-card{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:border-color var(--ease),box-shadow var(--ease);}
+  .int-card:hover{box-shadow:0 4px 20px rgba(0,0,0,.25);}
+  .int-card.status-connected{border-color:rgba(63,185,80,.35);}
+  .int-card.status-connected::before{content:'';display:block;height:3px;background:var(--green);}
+  .int-card.status-error{border-color:rgba(248,81,73,.35);}
+  .int-card.status-error::before{content:'';display:block;height:3px;background:var(--red);}
+
+  .int-card-head{padding:16px 18px 12px;display:flex;align-items:center;gap:12px;}
+  .int-logo{font-size:26px;flex-shrink:0;}
+  .int-name{font-size:14px;font-weight:700;color:var(--text-primary);line-height:1.3;}
+  .int-cat{font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--text-muted);}
+  .int-badge{margin-left:auto;flex-shrink:0;}
+  .badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:10px;font-size:10px;font-weight:700;}
+  .badge-connected{background:rgba(63,185,80,.12);color:var(--green);border:1px solid rgba(63,185,80,.3);}
+  .badge-error{background:rgba(248,81,73,.12);color:var(--red);border:1px solid rgba(248,81,73,.3);}
+  .badge-disconnected{background:var(--bg-tertiary);color:var(--text-muted);border:1px solid var(--border);}
+
+  .int-test-msg{padding:0 18px 10px;font-size:11px;line-height:1.5;}
+  .int-test-msg.ok{color:var(--green);}
+  .int-test-msg.err{color:var(--red);}
+
+  /* ── Accordion ──────────────────────────────────── */
+  .int-acc-toggle{width:100%;padding:10px 18px;background:transparent;border:none;border-top:1px solid var(--border-light);display:flex;justify-content:space-between;align-items:center;color:var(--text-secondary);font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;transition:color var(--ease);}
+  .int-acc-toggle:hover{color:var(--gold);}
+  .int-acc-toggle .arr{transition:transform .2s;}
+  .int-acc-toggle.open .arr{transform:rotate(180deg);}
+  .int-acc-body{display:none;padding:0 18px 18px;}
+  .int-acc-body.open{display:block;}
+
+  .int-steps{background:var(--bg-tertiary);border-radius:8px;padding:12px;margin-bottom:14px;}
+  .int-steps-title{font-size:10px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;}
+  .int-steps ol{padding-left:16px;margin:0;}
+  .int-steps li{font-size:11px;color:var(--text-secondary);line-height:1.7;}
+
+  .int-form{display:flex;flex-direction:column;gap:10px;}
+  .int-field label{display:block;font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:4px;}
+  .int-field input{width:100%;background:var(--bg-tertiary);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text-primary);font-family:inherit;outline:none;box-sizing:border-box;transition:border-color var(--ease);}
+  .int-field input:focus{border-color:var(--gold);}
+  .int-field .help{font-size:10px;color:var(--text-muted);margin-top:3px;line-height:1.4;}
+
+  .int-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
+  .int-btn{padding:7px 14px;border-radius:6px;border:none;font-size:11px;font-weight:700;font-family:inherit;cursor:pointer;transition:all var(--ease);}
+  .int-btn-primary{background:var(--gold);color:#0d1117;}
+  .int-btn-primary:hover{background:#f0c050;}
+  .int-btn-primary:disabled{opacity:.5;cursor:default;}
+  .int-btn-secondary{background:transparent;border:1px solid var(--border);color:var(--text-secondary);}
+  .int-btn-secondary:hover{border-color:var(--gold);color:var(--gold);}
+  .int-btn-danger{background:transparent;border:1px solid rgba(248,81,73,.4);color:var(--red);}
+  .int-btn-danger:hover{background:rgba(248,81,73,.1);}
+  .int-btn-oauth{background:rgba(88,166,255,.12);border:1px solid rgba(88,166,255,.3);color:var(--blue);}
+  .int-btn-oauth:hover{background:rgba(88,166,255,.2);}
+
+  .int-spinner{display:none;width:12px;height:12px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:4px;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+</style>
+
+<div class="page-header">
+  <div class="page-breadcrumb"><a href="/{{ data.industry }}">Dashboard</a><span class="breadcrumb-sep">›</span><span>Integrations</span></div>
+  <div class="page-title-row">
+    <div class="page-title">🔗 Integrations</div>
+    <div class="page-subtitle">
+      {{ platforms|selectattr('status','equalto','connected')|list|length }} connected ·
+      {{ platforms|length }} available for {{ data.industry | title }}
+    </div>
+  </div>
+</div>
+
+<div class="int-toolbar">
+  <button class="int-filter-btn active" data-cat="all">All</button>
+  {% for cat in categories %}
+  <button class="int-filter-btn" data-cat="{{ cat }}">{{ cat }}</button>
+  {% endfor %}
+  <div class="int-stats">
+    <span id="connected-count">{{ platforms|selectattr('status','equalto','connected')|list|length }}</span>
+    / {{ platforms|length }} connected
+  </div>
+</div>
+
+<div class="int-grid" id="int-grid">
+  {% for p in platforms %}
+  <div class="int-card status-{{ p.status }}" data-cat="{{ p.category }}" id="card-{{ p.key }}">
+
+    {# ── Card header ── #}
+    <div class="int-card-head">
+      <div class="int-logo">{{ p.logo }}</div>
+      <div>
+        <div class="int-name">{{ p.name }}</div>
+        <div class="int-cat">{{ p.category }}</div>
+      </div>
+      <div class="int-badge">
+        {% if p.status == 'connected' %}
+          <span class="badge badge-connected">● Connected</span>
+        {% elif p.status == 'error' %}
+          <span class="badge badge-error">✕ Error</span>
+        {% else %}
+          <span class="badge badge-disconnected">○ Not connected</span>
+        {% endif %}
+      </div>
+    </div>
+
+    {# ── Last test message ── #}
+    {% if p.last_test_msg %}
+    <div class="int-test-msg {{ 'ok' if p.last_test_ok else 'err' }}">
+      {{ '✓' if p.last_test_ok else '✗' }} {{ p.last_test_msg }}
+      {% if p.last_tested %}· <span style="color:var(--text-muted)">{{ p.last_tested[:16].replace('T',' ') }}</span>{% endif %}
+    </div>
+    {% endif %}
+
+    {# ── Accordion toggle ── #}
+    <button class="int-acc-toggle" onclick="toggleAcc('{{ p.key }}')" id="acc-toggle-{{ p.key }}">
+      <span>{{ 'Reconfigure' if p.status in ('connected','error') else 'Connect' }}</span>
+      <span class="arr">▼</span>
+    </button>
+
+    <div class="int-acc-body" id="acc-body-{{ p.key }}">
+
+      {# ── Setup steps ── #}
+      {% if p.setup_steps %}
+      <div class="int-steps">
+        <div class="int-steps-title">Setup instructions</div>
+        <ol>
+          {% for step in p.setup_steps %}
+          <li>{{ step }}</li>
+          {% endfor %}
+        </ol>
+      </div>
+      {% endif %}
+
+      {# ── Credential form ── #}
+      <form class="int-form" id="form-{{ p.key }}" onsubmit="return false;">
+        {% for f in p.fields %}
+        <div class="int-field">
+          <label>{{ f.label }}{% if not f.required|default(true) %} <span style="color:var(--text-muted)">(optional)</span>{% endif %}</label>
+          <input type="{{ f.type if f.type in ('text','password','url') else 'text' }}"
+                 name="{{ f.key }}"
+                 placeholder="{{ f.placeholder }}"
+                 autocomplete="off"
+                 id="field-{{ p.key }}-{{ f.key }}">
+          {% if f.help %}<div class="help">{{ f.help }}</div>{% endif %}
+        </div>
+        {% endfor %}
+
+        <div class="int-actions">
+          {# OAuth platforms: show Authorize button #}
+          {% if p.has_oauth %}
+          <button class="int-btn int-btn-oauth" type="button"
+                  onclick="oauthStart('{{ p.key }}', '{{ data.industry }}')">
+            🔐 Authorize with {{ p.name.split()[0] }}
+          </button>
+          {% endif %}
+
+          {# Save & Test button #}
+          <button class="int-btn int-btn-primary" type="button" id="btn-save-{{ p.key }}"
+                  onclick="saveAndTest('{{ p.key }}')">
+            <span class="int-spinner" id="spin-{{ p.key }}"></span>
+            {% if p.status == 'connected' %}Save & Re-test{% else %}Save & Test{% endif %}
+          </button>
+
+          {# Re-test existing connection #}
+          {% if p.status in ('connected','error') %}
+          <button class="int-btn int-btn-secondary" type="button" onclick="retest('{{ p.key }}')">
+            ↺ Re-test
+          </button>
+          <button class="int-btn int-btn-danger" type="button" onclick="disconnect('{{ p.key }}')">
+            Disconnect
+          </button>
+          {% endif %}
+        </div>
+      </form>
+
+      <div id="result-{{ p.key }}" style="margin-top:10px;font-size:12px;"></div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<script>
+// ── Accordion ─────────────────────────────────────────────────────────────────
+function toggleAcc(key) {
+  const body   = document.getElementById('acc-body-' + key);
+  const toggle = document.getElementById('acc-toggle-' + key);
+  const open   = body.classList.toggle('open');
+  toggle.classList.toggle('open', open);
+}
+
+// ── Category filter ───────────────────────────────────────────────────────────
+document.querySelector('.int-toolbar').addEventListener('click', e => {
+  const btn = e.target.closest('.int-filter-btn');
+  if (!btn) return;
+  document.querySelectorAll('.int-filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const cat = btn.dataset.cat;
+  document.querySelectorAll('.int-card').forEach(card => {
+    card.style.display = (cat === 'all' || card.dataset.cat === cat) ? '' : 'none';
+  });
+});
+
+// ── Helper: collect form fields ───────────────────────────────────────────────
+function collectForm(key) {
+  const form = document.getElementById('form-' + key);
+  const data = new FormData(form);
+  const obj  = {};
+  data.forEach((v, k) => { if (v.trim()) obj[k] = v.trim(); });
+  return obj;
+}
+
+// ── Update card status ────────────────────────────────────────────────────────
+function setCardStatus(key, status, msg, ok) {
+  const card = document.getElementById('card-' + key);
+  card.classList.remove('status-connected', 'status-error', 'status-disconnected');
+  card.classList.add('status-' + status);
+  // Update badge
+  const badge = card.querySelector('.int-badge');
+  if (status === 'connected')    badge.innerHTML = '<span class="badge badge-connected">● Connected</span>';
+  else if (status === 'error')   badge.innerHTML = '<span class="badge badge-error">✕ Error</span>';
+  else                           badge.innerHTML = '<span class="badge badge-disconnected">○ Not connected</span>';
+  // Update result area
+  const res = document.getElementById('result-' + key);
+  const color = ok ? '#3fb950' : '#f85149';
+  res.innerHTML = msg ? `<div style="color:${color};padding:8px;background:${ok?'rgba(63,185,80,.08)':'rgba(248,81,73,.08)'};border-radius:6px;border:1px solid ${ok?'rgba(63,185,80,.25)':'rgba(248,81,73,.25)'}">${ok?'✓':'✗'} ${msg}</div>` : '';
+  // Update connected count
+  const connected = document.querySelectorAll('.int-card.status-connected').length;
+  document.getElementById('connected-count').textContent = connected;
+}
+
+// ── Save & Test ───────────────────────────────────────────────────────────────
+function saveAndTest(key) {
+  const creds = collectForm(key);
+  const btn  = document.getElementById('btn-save-' + key);
+  const spin = document.getElementById('spin-' + key);
+  btn.disabled = true;
+  spin.style.display = 'inline-block';
+  fetch('/api/integrations/' + key + '/connect', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: new URLSearchParams(creds).toString()
+  })
+  .then(r => r.json())
+  .then(data => {
+    setCardStatus(key, data.ok ? 'connected' : 'error', data.msg, data.ok);
+    btn.disabled = false;
+    spin.style.display = 'none';
+    btn.textContent = data.ok ? 'Save & Re-test' : 'Save & Test';
+  })
+  .catch(err => {
+    setCardStatus(key, 'error', 'Request failed: ' + err, false);
+    btn.disabled = false;
+    spin.style.display = 'none';
+  });
+}
+
+// ── Re-test ───────────────────────────────────────────────────────────────────
+function retest(key) {
+  fetch('/api/integrations/' + key + '/test', {method: 'POST'})
+  .then(r => r.json())
+  .then(data => setCardStatus(key, data.ok ? 'connected' : 'error', data.msg, data.ok));
+}
+
+// ── Disconnect ────────────────────────────────────────────────────────────────
+function disconnect(key) {
+  if (!confirm('Disconnect this integration? Stored credentials will be erased.')) return;
+  fetch('/api/integrations/' + key + '/disconnect', {method: 'POST'})
+  .then(r => r.json())
+  .then(() => setCardStatus(key, 'disconnected', '', false));
+}
+
+// ── OAuth start ───────────────────────────────────────────────────────────────
+function oauthStart(key, industry) {
+  // Save any entered client_id/secret first so they survive the redirect
+  const creds = collectForm(key);
+  if (Object.keys(creds).length > 0) {
+    fetch('/api/integrations/' + key + '/connect', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: new URLSearchParams(creds).toString()
+    }).then(() => {
+      window.location.href = '/api/integrations/' + key + '/oauth/start';
+    });
+  } else {
+    window.location.href = '/api/integrations/' + key + '/oauth/start';
+  }
+}
+</script>
+{% endblock %}

@@ -1,9 +1,11 @@
-VERSION    = 'v3.2.22'
-BUILD_DATE = '2026-04-30'
+VERSION    = 'v3.2.23'
+BUILD_DATE = '2026-05-01'
 
 CHANGES = [
-    'Use Cases: expanded detail drawer with requirements, integrations, ROI, setup time per use case',
-    # v3.2.21
+    'Integration Connector Agents: 26 platforms, encrypted creds, OAuth2 flows, live test (integration_connectors.py)',
+    'TenantIntegration model: per-tenant encrypted credential storage with connection health state',
+    'Integrations UI: /<industry>/integrations — card grid, setup wizard, Save & Test, OAuth redirect, disconnect',
+    # v3.2.22
     'Enterprise security: OWASP Top 10 hardening (security.py)',
     'AES-256 per-tenant encryption at rest (encryption.py)',
     'Multi-tenant SQLAlchemy models with versioned sync conflict detection',

@@ -8,7 +8,7 @@ from datetime import datetime
 
 from sqlalchemy import (
     create_engine, Column, String, Integer, DateTime,
-    Boolean, Text, ForeignKey, event
+    Boolean, Text, ForeignKey, UniqueConstraint, event
 )
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker, scoped_session
 
@@ -56,9 +56,10 @@ class Tenant(Base):
     created_at    = Column(DateTime,    default=datetime.utcnow)
     updated_at    = Column(DateTime,    default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    users     = relationship('TenantUser', back_populates='tenant', cascade='all, delete-orphan')
-    documents = relationship('Document',   back_populates='tenant', cascade='all, delete-orphan')
-    domains   = relationship('Domain',     back_populates='tenant', cascade='all, delete-orphan')
+    users        = relationship('TenantUser',        back_populates='tenant', cascade='all, delete-orphan')
+    documents    = relationship('Document',          back_populates='tenant', cascade='all, delete-orphan')
+    domains      = relationship('Domain',            back_populates='tenant', cascade='all, delete-orphan')
+    integrations = relationship('TenantIntegration', back_populates='tenant', cascade='all, delete-orphan')
 
     def to_dict(self):
         return {
@@ -239,6 +240,26 @@ def set_config(key: str, value: str):
 def secrets_token():
     import secrets
     return secrets.token_hex(32)
+
+
+class TenantIntegration(Base):
+    """Per-tenant encrypted credentials and connection state for each external platform."""
+    __tablename__ = 'tenant_integrations'
+    __table_args__ = (UniqueConstraint('tenant_id', 'platform_key', name='uq_tenant_platform'),)
+
+    id               = Column(String(36),  primary_key=True, default=lambda: str(uuid.uuid4()))
+    tenant_id        = Column(String(36),  ForeignKey('tenants.id'), nullable=False)
+    platform_key     = Column(String(50),  nullable=False)
+    status           = Column(String(20),  default='disconnected')   # disconnected|connected|error
+    creds_enc        = Column(Text,        default='')   # encrypted JSON of all credential fields
+    token_expires_at = Column(DateTime,    nullable=True)
+    last_tested      = Column(DateTime,    nullable=True)
+    last_test_ok     = Column(Boolean,     default=False)
+    last_test_msg    = Column(String(500), default='')
+    connected_at     = Column(DateTime,    nullable=True)
+    connected_by     = Column(String(200), default='')
+
+    tenant = relationship('Tenant', back_populates='integrations')
 
 
 class OTPCode(Base):
