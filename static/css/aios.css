@@ -54,9 +54,11 @@ body {
   color: var(--text-primary);
   font-size: 13px;
   line-height: 1.5;
-  overflow: hidden;
   -webkit-font-smoothing: antialiased;
 }
+
+/* App shell locks scroll to its own panels; landing page needs body scroll */
+body:has(.layout) { overflow: hidden; }
 
 a { text-decoration: none; color: inherit; }
 button { border: none; cursor: pointer; font-family: inherit; }
@@ -587,12 +589,11 @@ button { border: none; cursor: pointer; font-family: inherit; }
    ══════════════════════════════════════════════════════════════ */
 .landing {
   min-height: 100vh;
-  overflow-y: auto;
   background: var(--bg-page);
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   padding: 48px 20px 56px;
   gap: 0;
 }
