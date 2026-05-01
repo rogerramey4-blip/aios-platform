@@ -1,0 +1,568 @@
+{% extends "base.html" %}
+
+{% block head %}
+<style>
+  /* ── Guide page layout ──────────────────────────────────────── */
+  .guide-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* ── Hero banner ────────────────────────────────────────────── */
+  .guide-hero {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px 32px;
+    position: relative;
+    overflow: hidden;
+  }
+  .guide-hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(227,179,65,.07) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .guide-hero-accent {
+    display: inline-block;
+    width: 3px;
+    height: 100%;
+    position: absolute;
+    left: 0;
+    top: 0;
+    background: linear-gradient(180deg, var(--gold) 0%, rgba(227,179,65,.2) 100%);
+    border-radius: 12px 0 0 12px;
+  }
+  .guide-hero-headline {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+    line-height: 1.3;
+  }
+  .guide-hero-tagline {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+    max-width: 720px;
+  }
+
+  /* ── Quick-start checklist ──────────────────────────────────── */
+  .guide-section-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 14px;
+  }
+  .guide-checklist {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    counter-reset: qs-counter;
+  }
+  .guide-checklist-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border-light);
+    cursor: pointer;
+    transition: background var(--ease);
+    border-radius: var(--radius-sm);
+  }
+  .guide-checklist-item:last-child {
+    border-bottom: none;
+  }
+  .guide-checklist-item:hover {
+    background: var(--bg-hover);
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+  .guide-checklist-item.qs-done .qs-label {
+    text-decoration: line-through;
+    color: var(--text-muted);
+  }
+  .guide-checklist-item.qs-done .qs-num {
+    background: var(--green);
+    color: #0d1117;
+    border-color: var(--green);
+  }
+  .guide-checklist-item.qs-done .qs-num::after {
+    content: '✓';
+  }
+  .qs-num {
+    flex-shrink: 0;
+    counter-increment: qs-counter;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-muted);
+    transition: all 0.2s ease;
+    background: var(--bg-tertiary);
+  }
+  .qs-num::after {
+    content: attr(data-n);
+  }
+  .qs-label {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    transition: all 0.2s ease;
+    flex: 1;
+  }
+
+  /* ── Feature sections accordion ─────────────────────────────── */
+  .guide-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .guide-acc {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    transition: border-color var(--ease);
+  }
+  .guide-acc:hover {
+    border-color: rgba(227,179,65,.4);
+  }
+  .guide-acc-hdr {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    cursor: pointer;
+    user-select: none;
+    background: var(--bg-card);
+    transition: background var(--ease);
+  }
+  .guide-acc-hdr:hover {
+    background: var(--bg-hover);
+  }
+  .guide-acc-icon {
+    font-size: 18px;
+    flex-shrink: 0;
+    width: 28px;
+    text-align: center;
+  }
+  .guide-acc-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary);
+    flex: 1;
+  }
+  .guide-acc-chevron {
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    color: var(--text-muted);
+    transition: transform 0.2s ease, border-color var(--ease);
+  }
+  .guide-acc.open .guide-acc-chevron {
+    transform: rotate(180deg);
+    border-color: var(--gold);
+    color: var(--gold);
+  }
+  .guide-acc-body {
+    display: none;
+    padding: 0 18px 16px 58px;
+    border-top: 1px solid var(--border-light);
+  }
+  .guide-acc.open .guide-acc-body {
+    display: block;
+  }
+  .guide-tip-list {
+    list-style: none;
+    padding: 0;
+    margin: 14px 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+  }
+  .guide-tip-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.65;
+  }
+  .guide-tip-bullet {
+    flex-shrink: 0;
+    font-size: 16px;
+    color: var(--gold);
+    line-height: 1.1;
+    margin-top: 1px;
+  }
+
+  /* ── FAQ accordion ──────────────────────────────────────────── */
+  .guide-faq {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .guide-faq-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    transition: border-color var(--ease);
+  }
+  .guide-faq-item:hover {
+    border-color: rgba(56,139,253,.4);
+  }
+  .guide-faq-q {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 13px 18px;
+    cursor: pointer;
+    user-select: none;
+    transition: background var(--ease);
+  }
+  .guide-faq-q:hover {
+    background: var(--bg-hover);
+  }
+  .guide-faq-q-mark {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(56,139,253,.12);
+    border: 1px solid rgba(56,139,253,.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--blue);
+  }
+  .guide-faq-q-text {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    flex: 1;
+    line-height: 1.4;
+  }
+  .guide-faq-chevron {
+    flex-shrink: 0;
+    font-size: 10px;
+    color: var(--text-muted);
+    transition: transform 0.2s ease;
+  }
+  .guide-faq-item.open .guide-faq-chevron {
+    transform: rotate(180deg);
+    color: var(--blue);
+  }
+  .guide-faq-a {
+    display: none;
+    padding: 0 18px 14px 52px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+    border-top: 1px solid var(--border-light);
+  }
+  .guide-faq-item.open .guide-faq-a {
+    display: block;
+    padding-top: 12px;
+  }
+
+  /* ── Support footer ─────────────────────────────────────────── */
+  .guide-support {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .guide-support-text {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+  .guide-support-text strong {
+    color: var(--text-primary);
+  }
+  .guide-support-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 16px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    transition: all var(--ease);
+    text-decoration: none;
+  }
+  .guide-support-link:hover {
+    border-color: var(--gold);
+    color: var(--gold);
+  }
+
+  /* ── Print button ───────────────────────────────────────────── */
+  .guide-print-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    background: var(--bg-tertiary);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all var(--ease);
+    font-family: inherit;
+  }
+  .guide-print-btn:hover {
+    border-color: var(--gold);
+    color: var(--gold);
+  }
+
+  /* ── Panel wrapper (shared) ─────────────────────────────────── */
+  .guide-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px 24px;
+  }
+
+  /* ── Print styles ───────────────────────────────────────────── */
+  @media print {
+    .guide-acc-body,
+    .guide-faq-a { display: block !important; }
+    .guide-acc-chevron,
+    .guide-faq-chevron,
+    .guide-print-btn,
+    .guide-support-link { display: none !important; }
+    .guide-hero::before { display: none; }
+    body:has(.layout) { overflow: visible !important; height: auto !important; }
+    .layout {
+      display: block !important;
+      height: auto !important;
+    }
+    .header, .sidebar { display: none !important; }
+    .main {
+      grid-column: unset !important;
+      overflow: visible !important;
+      height: auto !important;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block main %}
+<!-- ── Page header ──────────────────────────────────────────────── -->
+<div class="page-header" style="margin-bottom:20px;">
+  <div class="page-breadcrumb">
+    <a href="/{{ data.industry }}">Dashboard</a>
+    <span class="breadcrumb-sep">›</span>
+    <span>User Guide</span>
+  </div>
+  <div class="page-title-row">
+    <div class="page-title">&#128218; User Guide</div>
+    <div class="page-subtitle" style="flex:1;">{{ data.firm_name }}</div>
+    <button class="guide-print-btn" onclick="window.print()" title="Print this guide">
+      &#128438; Print Guide
+    </button>
+  </div>
+</div>
+
+<div class="guide-wrap">
+
+  <!-- ── Hero banner ───────────────────────────────────────────── -->
+  <div class="guide-hero">
+    <div class="guide-hero-accent"></div>
+    <div class="guide-hero-headline">{{ guide.headline }}</div>
+    <div class="guide-hero-tagline">{{ guide.tagline }}</div>
+  </div>
+
+  <!-- ── Quick Start Checklist ─────────────────────────────────── -->
+  <div class="guide-panel">
+    <div class="guide-section-label">Quick Start Checklist</div>
+    <ul class="guide-checklist" id="qs-list">
+      {% for item in guide.quick_start %}
+      <li class="guide-checklist-item" data-idx="{{ loop.index0 }}" onclick="toggleQS(this)">
+        <span class="qs-num" data-n="{{ loop.index }}"></span>
+        <span class="qs-label">{{ item }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    <div style="margin-top:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+      <span id="qs-progress-text" style="font-size:11px;color:var(--text-muted);">0 of {{ guide.quick_start|length }} completed</span>
+      <button onclick="resetQS()" style="font-size:11px;color:var(--text-muted);background:none;border:none;cursor:pointer;text-decoration:underline;font-family:inherit;" title="Reset all checkboxes">Reset</button>
+    </div>
+  </div>
+
+  <!-- ── Feature Sections ──────────────────────────────────────── -->
+  {% if guide.sections %}
+  <div class="guide-panel">
+    <div class="guide-section-label">Feature Sections</div>
+    <div class="guide-sections" id="guide-sections">
+      {% for sec in guide.sections %}
+      <div class="guide-acc{% if loop.index <= 2 %} open{% endif %}" data-acc="{{ loop.index0 }}">
+        <div class="guide-acc-hdr" onclick="toggleAcc(this.parentElement)">
+          <span class="guide-acc-icon">{{ sec.icon }}</span>
+          <span class="guide-acc-title">{{ sec.title }}</span>
+          <span class="guide-acc-chevron">&#9660;</span>
+        </div>
+        <div class="guide-acc-body">
+          <ul class="guide-tip-list">
+            {% for tip in sec.tips %}
+            <li>
+              <span class="guide-tip-bullet">&middot;</span>
+              <span>{{ tip }}</span>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ── FAQ ───────────────────────────────────────────────────── -->
+  {% if guide.faqs %}
+  <div class="guide-panel">
+    <div class="guide-section-label">Frequently Asked Questions</div>
+    <div class="guide-faq" id="guide-faq">
+      {% for faq in guide.faqs %}
+      <div class="guide-faq-item" data-faq="{{ loop.index0 }}">
+        <div class="guide-faq-q" onclick="toggleFAQ(this.parentElement)">
+          <span class="guide-faq-q-mark">Q</span>
+          <span class="guide-faq-q-text">{{ faq.q }}</span>
+          <span class="guide-faq-chevron">&#9660;</span>
+        </div>
+        <div class="guide-faq-a">{{ faq.a }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ── Support footer ────────────────────────────────────────── -->
+  <div class="guide-support">
+    <div class="guide-support-text">
+      <strong>Need help?</strong> Contact AI Evolution Services —
+      <span style="color:var(--blue);">support@aievolvedservices.com</span>
+    </div>
+    <a class="guide-support-link" href="mailto:support@aievolvedservices.com">
+      &#9993; Email Support
+    </a>
+  </div>
+
+</div><!-- /.guide-wrap -->
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  'use strict';
+
+  /* ── Quick-start checklist ──────────────────────────────── */
+  var QS_KEY = 'aios-guide-qs-{{ data.industry }}';
+  var qsTotal = document.querySelectorAll('.guide-checklist-item').length;
+
+  function loadQS() {
+    try {
+      var saved = JSON.parse(localStorage.getItem(QS_KEY) || '[]');
+      saved.forEach(function (idx) {
+        var el = document.querySelector('.guide-checklist-item[data-idx="' + idx + '"]');
+        if (el) el.classList.add('qs-done');
+      });
+    } catch (e) {}
+    updateQSProgress();
+  }
+
+  function saveQS() {
+    var done = [];
+    document.querySelectorAll('.guide-checklist-item.qs-done').forEach(function (el) {
+      done.push(el.getAttribute('data-idx'));
+    });
+    try { localStorage.setItem(QS_KEY, JSON.stringify(done)); } catch (e) {}
+  }
+
+  function updateQSProgress() {
+    var doneCount = document.querySelectorAll('.guide-checklist-item.qs-done').length;
+    var txt = document.getElementById('qs-progress-text');
+    if (txt) {
+      txt.textContent = doneCount + ' of ' + qsTotal + ' completed';
+      txt.style.color = doneCount === qsTotal ? 'var(--green)' : 'var(--text-muted)';
+    }
+  }
+
+  window.toggleQS = function (el) {
+    el.classList.toggle('qs-done');
+    saveQS();
+    updateQSProgress();
+  };
+
+  window.resetQS = function () {
+    document.querySelectorAll('.guide-checklist-item.qs-done').forEach(function (el) {
+      el.classList.remove('qs-done');
+    });
+    try { localStorage.removeItem(QS_KEY); } catch (e) {}
+    updateQSProgress();
+  };
+
+  /* ── Feature section accordion ──────────────────────────── */
+  window.toggleAcc = function (panel) {
+    panel.classList.toggle('open');
+  };
+
+  /* ── FAQ accordion ──────────────────────────────────────── */
+  window.toggleFAQ = function (item) {
+    var isOpen = item.classList.contains('open');
+    /* close all, then open clicked if it was closed */
+    document.querySelectorAll('.guide-faq-item.open').forEach(function (el) {
+      el.classList.remove('open');
+    });
+    if (!isOpen) {
+      item.classList.add('open');
+    }
+  };
+
+  /* ── Keyboard accessibility ─────────────────────────────── */
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      document.querySelectorAll('.guide-faq-item.open').forEach(function (el) {
+        el.classList.remove('open');
+      });
+    }
+  });
+
+  /* ── Init ───────────────────────────────────────────────── */
+  loadQS();
+})();
+</script>
+{% endblock %}

@@ -86,6 +86,7 @@ def _nav(industry, active_key, pipeline_label, tools):
             _item('◈', 'Team & Roles',   f'/{industry}/team',      'team'),
             _item('◫', 'Documents',      f'/{industry}/documents', 'documents'),
             _item('◉', 'Domain & SSL',   f'/{industry}/domain',    'domain'),
+            _item('📖', 'User Guide',    f'/{industry}/guide',     'guide'),
             _item('🔑', 'Authenticator (2FA)', '/totp/setup',      'totp_setup'),
         ]},
     ]
@@ -1333,6 +1334,410 @@ EMAILS_DATA = {
     ],
 }
 
+# ── User Guide Content ───────────────────────────────────────────────────────
+GUIDE_CONTENT = {
+    'agency': {
+        'headline': 'AIOS — AI Automation Agency Command Center',
+        'tagline': 'Manage every client account, agent deployment, and MRR signal from one AI-powered platform.',
+        'quick_start': [
+            'Connect your CRM (HubSpot or Salesforce) via Settings → Integrations',
+            'Import your client roster via Data Import → upload CSV (firm name, contact, MRR tier)',
+            'Open the Dashboard → review the Client Health Scorecard and AI Actions panel',
+            'Run your first Daily Brief — AI generates a morning summary of all client signals at 7 AM',
+            'Open Agent Overview — confirm all 6 agents show green / active status',
+            'Send your first AI-drafted check-in email from Email Intelligence → Draft Reply',
+        ],
+        'sections': [
+            {'icon': '◎', 'title': 'Dashboard',      'tips': [
+                'AI Actions panel — check this first each morning; items are ranked by urgency',
+                'Client Health Scorecard — red/amber dots identify clients needing attention today',
+                'Goals & Pipeline bar — tracks MRR progress against month target in real time',
+                'Agent Status widget — all 6 agents should show active; investigate any idle agents',
+            ]},
+            {'icon': '≡', 'title': 'Daily Brief',    'tips': [
+                'Auto-generated at 7 AM from overnight agent activity — no manual steps needed',
+                'Highlights surface wins, risks, and alerts in urgency order',
+                'Metrics block shows MRR, client count, uptime, and open proposals day-over-day',
+                'Connect Google Calendar via Integrations to populate the Calendar section automatically',
+            ]},
+            {'icon': '⬡', 'title': 'Client Pipeline','tips': [
+                'Use stage filters (Active, At Risk, Onboarding) to focus your day',
+                'Health Score below 60 triggers automatic churn outreach from the Churn Predictor',
+                'Next Action and Due columns are agent-populated — review and override any as needed',
+                'Import new clients via Data Import or sync automatically from your connected CRM',
+            ]},
+            {'icon': '✉', 'title': 'Email Intelligence','tips': [
+                'AI Action column shows the recommended next step for every message',
+                'Click "Draft Reply" to have the Email Drafter compose a response in seconds',
+                '"Retention call offer" items should be actioned within 24 hours to prevent churn',
+                'Opportunity badges (green) represent upsell moments — prioritize same-day response',
+            ]},
+            {'icon': '◷', 'title': 'Integrations',   'tips': [
+                'Connect HubSpot or Salesforce first — it powers the Client Health Monitor',
+                'Google Analytics + Meta Ads APIs enable automated ROI report generation per client',
+                'SendGrid or Mailchimp is required for Email Drafter agent outbound delivery',
+                'All credentials are AES-256 encrypted at rest — safe to store API keys here',
+            ]},
+        ],
+        'faqs': [
+            {'q': 'How do I add a new client?', 'a': 'Use Data Import to upload a client CSV, or sync automatically from HubSpot/Salesforce once connected. Each new client is scored by the Client Health Monitor within 15 minutes of appearing.'},
+            {'q': 'What triggers a churn alert?', 'a': 'The Churn Predictor fires when login frequency drops below threshold, agent uptime falls below 95%, or a support ticket is opened. Scores update every 15 minutes; below 60 triggers an alert.'},
+            {'q': 'How do I generate an ROI report?', 'a': 'The ROI Reporter runs automatically at month-end. For on-demand reports, go to Agent Overview → ROI Reporter → Run Now. The report is emailed to the client automatically.'},
+            {'q': 'Can I customize the proposal template?', 'a': 'Upload your branded proposal template as a PDF to Documents. The Proposal Generator uses it as a base and populates it with client-specific CRM data.'},
+        ],
+    },
+    'legal': {
+        'headline': 'AIOS — Legal Practice Intelligence Platform',
+        'tagline': 'Never miss a deadline. Track every matter, billing target, and court docket from one command center.',
+        'quick_start': [
+            'Connect your practice management system (Clio or MyCase) via Integrations',
+            'Import active matters via Data Import → CSV with matter name, SOL date, attorney, type',
+            'Review the SOL Watchlist on the Dashboard — any matter under 14 days needs immediate action',
+            'Open Email Intelligence → review urgent client emails flagged by the AI triage agent',
+            'Confirm the Deadline Sentinel agent is active in Agent Overview',
+            'Enable PACER Monitor integration for automatic federal docket alerts',
+        ],
+        'sections': [
+            {'icon': '◎', 'title': 'Dashboard',          'tips': [
+                'SOL Watchlist — red items are critical; the Deadline Sentinel fires alerts at 14/7/2/1 days',
+                'AI Actions are sorted by urgency — case-critical items appear first',
+                'Billable Hours KPI tracks today\'s target — update time entries in your billing system',
+                'Agent Status — Deadline Sentinel should always show active; alert if it goes idle',
+            ]},
+            {'icon': '≡', 'title': 'Daily Brief',        'tips': [
+                'Generated at 7:15 AM — includes all new docket activity from overnight PACER scans',
+                'A/R Outstanding metric tracks overdue invoices — flag anything over 90 days for collections',
+                'Highlights surface opposing counsel filings, upcoming deadlines, and new case activity',
+                'Calendar entries are pulled from your connected calendar — sync Outlook or Google Calendar',
+            ]},
+            {'icon': '⬡', 'title': 'Matter Pipeline',    'tips': [
+                'Stage column shows current workflow status (Intake, Discovery, Motions, Trial, etc.)',
+                'Due column is agent-populated from your matter management system — verify against PACER',
+                'Est. Value tracks matter pipeline by case type for revenue forecasting',
+                'Click a matter row to view full AI-generated case summary and next steps',
+            ]},
+            {'icon': '✉', 'title': 'Email Intelligence', 'tips': [
+                'Client emails are triaged by urgency — urgent items appear at the top every morning',
+                'Draft Reply uses the client\'s prior communication style for tone-matched responses',
+                'PACER Notification emails are auto-classified — review docket entries immediately',
+                'Billing and collections emails are auto-tagged with AI Action for faster processing',
+            ]},
+            {'icon': '◷', 'title': 'Integrations',       'tips': [
+                'PACER API is required for automated federal docket monitoring',
+                'Westlaw or Casetext API unlocks the Legal Research Agent for live precedent search',
+                'Clio or MyCase integration populates the Pipeline and Billing Agent automatically',
+                'DocuSign integration enables AI-drafted engagement letters to be sent for e-signature',
+            ]},
+        ],
+        'faqs': [
+            {'q': 'How does the Deadline Sentinel prevent missed deadlines?', 'a': 'It scans all active matters every 30 minutes and sends escalating alerts at 14, 7, 2, and 1 day before any deadline. Alerts are sent via email and appear in the Dashboard AI Actions panel.'},
+            {'q': 'Can AIOS draft motions and briefs?', 'a': 'Yes — the Motion Drafter agent generates draft documents from case notes and prior filings. Upload relevant documents to the Document Vault first for best results. Always have an attorney review before filing.'},
+            {'q': 'How do I handle a PACER docket alert?', 'a': 'PACER Monitor sends an alert within 15 minutes of new activity. The Email Intelligence page flags these as "Review docket entry." Click to see the filing summary, then calendar any new deadlines.'},
+            {'q': 'How are invoices generated?', 'a': 'The Billing Agent pulls time entries from your connected practice management system (Clio/MyCase) and generates invoices automatically. Configure billing rates in your PM system — they sync to AIOS automatically.'},
+        ],
+    },
+    'construction': {
+        'headline': 'AIOS — Construction Project Intelligence Platform',
+        'tagline': 'Monitor every project, permit, RFI, and subcontractor across your entire portfolio in real time.',
+        'quick_start': [
+            'Connect your project management system (Procore or Buildertrend) via Integrations',
+            'Import active projects via Data Import → CSV with project name, budget, PM, start/end dates',
+            'Review the Project Health Matrix on the Dashboard — any red risk dots need same-day attention',
+            'Open Email Intelligence → action any permit or owner emails flagged urgent by the AI',
+            'Confirm Permit Watcher and Budget Watchdog agents are active in Agent Overview',
+            'Connect the Weather API (OpenWeatherMap) to enable automatic weather impact forecasting',
+        ],
+        'sections': [
+            {'icon': '◎', 'title': 'Dashboard',          'tips': [
+                'Project Health Matrix — budget variance above 5% and red risk dots require immediate review',
+                'AI Actions panel — permit expiry alerts and weather warnings are time-critical',
+                'Pipeline bar shows budget consumption vs. % complete for all active projects',
+                'Safety Days counter resets on any reported incident — maintain a clean log',
+            ]},
+            {'icon': '≡', 'title': 'Daily Brief',        'tips': [
+                'Generated at 6:45 AM — includes overnight weather forecast and schedule impacts',
+                'Budget Variance metric shows average across all projects — drill in on the Pipeline page',
+                'RFI count tracks open items — anything over 30 days unresolved should be escalated',
+                'Weather alert highlights affect multiple projects simultaneously — review before site walks',
+            ]},
+            {'icon': '⬡', 'title': 'Project Pipeline',   'tips': [
+                'Budget Var. column turns amber at +3%, red at +7% — investigate root cause via change orders',
+                '% Complete tracks physical progress from your PM system — keep it synced weekly',
+                'PM column shows the responsible project manager for each job — use for routing issues',
+                'Next Action and Due are agent-populated — override as conditions change on site',
+            ]},
+            {'icon': '✉', 'title': 'Email Intelligence', 'tips': [
+                'Permit office emails are auto-tagged "Initiate renewal package" — action within 24 hrs',
+                'Owner budget concern emails should be escalated via "Schedule review call" same day',
+                'Subcontractor delay emails trigger automatic RFI draft by the RFI Response Agent',
+                'OSHA and insurance renewal emails are tagged low priority but should be calendared',
+            ]},
+            {'icon': '◷', 'title': 'Integrations',       'tips': [
+                'Procore integration populates the Project Pipeline and syncs RFI logs automatically',
+                'Buildertrend integration is available for residential-focused builders',
+                'OpenWeatherMap API powers the Weather Impact Agent — connect for automatic schedule alerts',
+                'Sage 300 or QuickBooks integration enables real-time budget variance tracking',
+            ]},
+        ],
+        'faqs': [
+            {'q': 'How does the Permit Watcher prevent permit lapses?', 'a': 'Permit Watcher scans expiry dates daily and sends alerts at 30, 14, and 7 days before expiry. At 14 days it auto-drafts the renewal package from project details — review and submit before the deadline.'},
+            {'q': 'What causes a budget variance alert?', 'a': 'Budget Watchdog fires when variance exceeds your configured threshold (default 5%). Root cause analysis pulls from the change order log — connect Procore for automatic CO tracking.'},
+            {'q': 'How do I handle a weather impact?', 'a': 'The Weather Impact Agent generates a revised schedule automatically when a multi-day weather event is forecast. Review the impact report in the Daily Brief and update affected subcontractors via the Subcontractor Comms agent.'},
+            {'q': 'How are RFI responses drafted?', 'a': 'The RFI Response Agent pulls from your uploaded spec library and historical project documentation. Upload project specs as PDFs to the Document Vault — the agent indexes them within 10 minutes of upload.'},
+        ],
+    },
+    'medical': {
+        'headline': 'AIOS — Medical Practice Intelligence Platform',
+        'tagline': 'Keep prior authorizations current, claims clean, and patients recalled — on autopilot.',
+        'quick_start': [
+            'Connect your EHR/PM system (Availity or Change Healthcare) via Integrations',
+            'Import today\'s schedule via Data Import → CSV export from your scheduling system',
+            'Review the Dashboard — check Pending Auths count and any claims flagged by Claim Scrubber',
+            'Open Email Intelligence → action any payer denials or credentialing emails flagged urgent',
+            'Confirm Prior Auth Bot and Claim Scrubber are active in Agent Overview',
+            'Launch the Recall Scheduler campaign — identify patients overdue for recall under Use Cases',
+        ],
+        'sections': [
+            {'icon': '◎', 'title': 'Dashboard',           'tips': [
+                'Pending Auths widget — anything expiring within 7 days needs same-day action',
+                'Collections Rate KPI — below 96% indicates claim submission or follow-up issues',
+                'Schedule Utilization shows today\'s fill rate — open slots should trigger recall outreach',
+                'AI Actions panel — denial and auth alerts are time-sensitive; act same day',
+            ]},
+            {'icon': '≡', 'title': 'Daily Brief',         'tips': [
+                'Generated at 6:58 AM — includes overnight auth status and lab result alerts',
+                'Patients Today metric matches your scheduling system — sync EHR for live count',
+                'Highlights surface claim denials, expiring auths, and unacknowledged lab results',
+                'Calendar entries show provider schedules — link to your Google/Outlook calendar',
+            ]},
+            {'icon': '⬡', 'title': 'Patient Schedule',    'tips': [
+                'Status column: Checked In → Waiting → Confirmed tracks real-time patient flow',
+                'Flag column shows Auth Expiring and Unacked Labs — clear before the visit starts',
+                'Open slots are highlighted — the Recall Scheduler auto-fills from overdue patient list',
+                'Insurance column is verified 24 hrs in advance by the Insurance Verifier agent',
+            ]},
+            {'icon': '✉', 'title': 'Email Intelligence',  'tips': [
+                'Payer denial emails should be actioned immediately — use "Review denial + appeal" workflow',
+                'Patient emails about auths/appointments should be called back same day',
+                'Lab result emails trigger "Flag for providers" — route to the correct provider inbox',
+                'Credentialing renewal emails have long lead times — calendar 90 days before due',
+            ]},
+            {'icon': '◷', 'title': 'Integrations',        'tips': [
+                'Availity integration is required for Prior Auth Bot to submit and track authorizations',
+                'Change Healthcare connects for real-time eligibility verification and claim status',
+                'AthenaHealth integration enables direct EHR chart sync for SOAP Note drafting',
+                'Quest Diagnostics integration auto-routes incoming lab results to the correct provider',
+            ]},
+        ],
+        'faqs': [
+            {'q': 'How does the Prior Auth Bot submit authorizations?', 'a': 'Connect Availity via Integrations — the bot reads the appointment schedule, identifies patients needing auth, and submits electronically. It also monitors status and sends alerts at 14 and 7 days before auth expiry.'},
+            {'q': 'How does the Claim Scrubber work?', 'a': 'It reviews every claim before submission against 47 common denial triggers including missing modifiers, diagnosis-procedure mismatches, and credentialing gaps. Claims with issues are flagged for review before they leave the practice.'},
+            {'q': 'How do I run a recall campaign?', 'a': 'Go to Use Cases → Recall Scheduling → Activate. The Recall Scheduler identifies patients overdue for their next visit and sends a personalized SMS/email sequence automatically. Review the patient list before launching for the first time.'},
+            {'q': 'What happens when a claim is denied?', 'a': 'The Denial Analyzer categorizes the denial by payer and reason code, then drafts an appeal letter. Go to Email Intelligence → find the denial email → click "Review denial + appeal" to review and submit.'},
+        ],
+    },
+    'brokerage': {
+        'headline': 'AIOS — Real Estate Brokerage Intelligence Platform',
+        'tagline': 'Route every lead, optimize every listing, and close every transaction on schedule.',
+        'quick_start': [
+            'Connect your CRM (Follow Up Boss or kvCORE) via Integrations to sync lead flow',
+            'Connect your TC platform (SkySlope or Dotloop) for live transaction deadline tracking',
+            'Import your active listings via Data Import → CSV from MLS (address, price, agent, DOM)',
+            'Review the Dashboard — check the Agent Leaderboard and any listing optimization alerts',
+            'Confirm Lead Scorer & Router and Transaction Coordinator agents are active',
+            'Review open listings with DOM > 30 days — the Listing Optimizer flags price reduction candidates',
+        ],
+        'sections': [
+            {'icon': '◎', 'title': 'Dashboard',           'tips': [
+                'Agent Leaderboard — agents with 0 closings in 45+ days need coaching intervention',
+                'AI Actions panel — offer deadlines and listing expiry alerts are time-critical',
+                'Under Contract KPI tracks pipeline momentum — should be 25-30% of active listings',
+                'New Leads Today compares to your daily average — spikes indicate marketing activity',
+            ]},
+            {'icon': '≡', 'title': 'Daily Brief',         'tips': [
+                'Generated at 7:08 AM — includes overnight lead arrivals and transaction deadline alerts',
+                'Highlights surface offer deadlines, listing expiry, and agent performance signals',
+                'Commission MTD tracks against monthly target — use to pace the team',
+                'Calendar entries show pending offer reviews, listing appointments, and buyer consults',
+            ]},
+            {'icon': '⬡', 'title': 'Listing Pipeline',    'tips': [
+                'DOM > 60 turns amber — Listing Optimizer will suggest price, photo, or copy changes',
+                'Under Contract listings should be monitored daily for contingency deadlines',
+                'Price Reduced status is auto-set when a reduction is entered in MLS',
+                'Offers column is populated from your TC platform — keep SkySlope/Dotloop synced',
+            ]},
+            {'icon': '✉', 'title': 'Email Intelligence',  'tips': [
+                'Pre-approved buyer emails should be actioned within 30 minutes — route to matched agent',
+                'Seller "any offers?" emails trigger "Send price reduction CMA" workflow',
+                'Offer submission emails are auto-tagged "Log offer + notify seller" — action immediately',
+                'Agent support emails should route to broker for coaching follow-up within 24 hours',
+            ]},
+            {'icon': '◷', 'title': 'Integrations',        'tips': [
+                'Follow Up Boss or kvCORE CRM integration is required for Lead Scorer routing to work',
+                'SkySlope or Dotloop integration powers the Transaction Coordinator deadline tracking',
+                'MLS API integration enables Listing Optimizer to pull real-time comparable data',
+                'ShowingTime integration automates showing coordination and feedback collection',
+            ]},
+        ],
+        'faqs': [
+            {'q': 'How does Lead Scorer & Router assign leads?', 'a': 'It scores each lead 0-100 based on engagement, pre-approval status, and search behavior, then routes to the agent with the best matching history and current capacity. Configure routing rules in Integrations → Follow Up Boss.'},
+            {'q': 'How does the Listing Optimizer decide what to recommend?', 'a': 'It analyzes DOM, showing count, offer count, and comparable active listings. When DOM exceeds your threshold (default 30 days) without offers, it generates a report with specific price, photo, and copy recommendations.'},
+            {'q': 'How are transaction deadlines tracked?', 'a': 'Connect SkySlope or Dotloop via Integrations. The Transaction Coordinator agent reads all open contracts, extracts contingency dates, and sends alerts at 7, 3, and 1 day before each deadline to buyer, seller, and agent.'},
+            {'q': 'How do I run a CMA?', 'a': 'Go to Use Cases → CMA Bot → Run. Enter the subject property address and the bot pulls MLS comparables and generates a full CMA in under 90 seconds. Output is a formatted PDF ready for client presentation.'},
+        ],
+    },
+    'hvac': {
+        'headline': 'AIOS — HVAC & Climate Services Command Center',
+        'tagline': 'Dispatch faster, estimate smarter, and never lose a maintenance contract renewal.',
+        'quick_start': [
+            'Connect ServiceTitan or Jobber via Integrations to sync your job and customer data',
+            'Import your technician roster via Data Import → CSV with name, zone, skills, and mobile number',
+            'Review the Dashboard Dispatch Board — confirm all techs are assigned and on route',
+            'Open Email Intelligence → action any emergency customer emails first',
+            'Confirm Dispatch Optimizer and Maintenance Reminder agents are active in Agent Overview',
+            'Review upcoming maintenance contract renewals in the Daily Brief and launch outreach campaign',
+        ],
+        'sections': [
+            {'icon': '◎', 'title': 'Dashboard',              'tips': [
+                'Technician Dispatch Board — red "EMERGENCY" AI Actions require immediate dispatch',
+                'Maintenance Contracts KPI shows renewals due this month — launch outreach from here',
+                'Monthly Revenue bar tracks progress to target — Emergency Repairs drive the fastest growth',
+                'Tech Utilization should stay between 80-90%; above 95% risks burnout and missed SLAs',
+            ]},
+            {'icon': '≡', 'title': 'Daily Brief',            'tips': [
+                'Generated at 6:30 AM — includes weather advisory and emergency call forecast for the day',
+                'Calls Today metric is compared to your rolling average — spikes signal need to call in overflow',
+                'Contract Renewals due this month are counted here — use the link to launch outreach',
+                'Parts Order alerts surface back-orders that could delay today\'s scheduled jobs',
+            ]},
+            {'icon': '⬡', 'title': 'Service Call Pipeline',  'tips': [
+                'ASAP ETAs are emergency jobs — confirm dispatch before reviewing any other items',
+                'Revenue column shows estimated job value — prioritize high-value and emergency calls',
+                'Unassigned jobs need a tech before the end of the day — use the Dispatch Board to assign',
+                'Completed jobs trigger the Post-Job Follow-up and Invoice agents automatically',
+            ]},
+            {'icon': '✉', 'title': 'Email Intelligence',     'tips': [
+                'Emergency customer emails appear at the top — confirm dispatch ETA immediately',
+                'Parts supplier back-order emails should trigger "Find alternative supplier" search',
+                'Maintenance contract renewal inquiries should get a proposal back within 2 hours',
+                'Commercial service contract opportunities should be escalated to a senior tech or owner',
+            ]},
+            {'icon': '◷', 'title': 'Integrations',           'tips': [
+                'ServiceTitan integration powers the Dispatch Optimizer and Estimate Generator agents',
+                'Jobber is the alternative field service platform — connect one or the other, not both',
+                'Twilio SMS integration enables customer ETA notifications and review request delivery',
+                'Yelp Business integration monitors incoming reviews and alerts within 30 minutes of posting',
+            ]},
+        ],
+        'faqs': [
+            {'q': 'How does the Dispatch Optimizer assign jobs?', 'a': 'It assigns each incoming job to the best-available technician by matching skill set, current zone, and current job load. Emergency jobs override the queue automatically. Connect ServiceTitan or Jobber for live job data.'},
+            {'q': 'How do I manage maintenance contract renewals?', 'a': 'The Maintenance Reminder agent identifies contracts expiring within 30 days and launches a personalized outreach sequence (email → SMS → call prompt). Review the renewal list in the Daily Brief and click to launch the campaign.'},
+            {'q': 'How are estimates generated and sent?', 'a': 'The Estimate Generator builds itemized estimates from tech job notes against your flat-rate price book. Connect ServiceTitan/Jobber and upload your price book via Data Import. Estimates are emailed to the customer within 5 minutes of tech diagnosis.'},
+            {'q': 'What happens after a job is completed?', 'a': 'Three agents fire automatically on job close: Post-Job Follow-up (sends satisfaction check-in 24 hrs later), Invoice & Payment Bot (sends invoice immediately), and Review Request Bot (sends 5-star review request 2 hrs later for satisfied customers).'},
+        ],
+    },
+    'plumbing': {
+        'headline': 'AIOS — Plumbing Services Command Center',
+        'tagline': 'Triage every emergency, close every quote, and collect every invoice — without lifting a finger.',
+        'quick_start': [
+            'Connect Jobber or Housecall Pro via Integrations to sync jobs and customers',
+            'Import your plumber roster via Data Import → CSV with name, mobile number, and current zone',
+            'Review the Dashboard Job Board — confirm all active emergency jobs are dispatched',
+            'Open Email Intelligence → action any burst pipe or flooding emergency emails first',
+            'Confirm Lead Qualifier and Dispatch Scheduler agents are active in Agent Overview',
+            'Review open quotes over 2 days old in the Pipeline — trigger follow-up from Email Intelligence',
+        ],
+        'sections': [
+            {'icon': '◎', 'title': 'Dashboard',              'tips': [
+                'Job Board — ASAP / emergency jobs require dispatch confirmation before anything else',
+                'Open Quotes KPI — more than 15 open quotes indicates a follow-up backlog',
+                'Monthly Revenue bar shows progress to target — Emergency Repairs are the highest margin',
+                'Avg Review Rating tracks customer satisfaction — below 4.5 signals service quality issues',
+            ]},
+            {'icon': '≡', 'title': 'Daily Brief',            'tips': [
+                'Generated at 6:45 AM — includes weather freeze advisory and tomorrow\'s volume forecast',
+                'Jobs Today metric breaks down emergency vs. scheduled — use for staffing decisions',
+                'Open Quotes count tracks unconverted estimates — review daily to close revenue gaps',
+                'Permit Pending items are listed here — follow up on any over 5 days old',
+            ]},
+            {'icon': '⬡', 'title': 'Job Pipeline',           'tips': [
+                'ASAP ETAs are burst pipe or flooding emergencies — verify dispatch is in progress',
+                'Revenue column shows est. job value — $0 permit inspections still drive future work',
+                'Pending jobs need customer confirmation before dispatching — call to verify',
+                'Completed jobs trigger the Invoice Agent and Review Request Bot automatically',
+            ]},
+            {'icon': '✉', 'title': 'Email Intelligence',     'tips': [
+                'Emergency flooding emails should be actioned within 5 minutes — dispatch immediately',
+                'Quote follow-up emails with questions should get a callback same day to close the job',
+                'City permit office emails requesting additional docs should be actioned same day',
+                'Supplier price increase emails should trigger a price book update before the effective date',
+            ]},
+            {'icon': '◷', 'title': 'Integrations',           'tips': [
+                'Jobber integration powers the Lead Qualifier, Dispatch Scheduler, and Invoice Agent',
+                'Housecall Pro is an alternative field service platform — use one or the other',
+                'Twilio SMS integration enables customer ETA alerts and review request delivery',
+                'Google Business Profile integration enables the Review Request Bot to direct customers to your listing',
+            ]},
+        ],
+        'faqs': [
+            {'q': 'How does the emergency call triage work?', 'a': 'The Lead Qualifier agent processes incoming calls and web inquiries, classifies them as emergency or routine, and creates a dispatch ticket automatically. Emergency jobs are flagged immediately and routed to the nearest available plumber.'},
+            {'q': 'How are quotes built and delivered?', 'a': 'The Quote Generator builds flat-rate quotes from job notes and your uploaded price book. Quotes are emailed with a one-click accept link — when the customer clicks Accept, the job is scheduled automatically and a deposit request is sent.'},
+            {'q': 'How does permit tracking work?', 'a': 'The Permit Tracker logs applications and monitors approval status. It sends automated follow-up emails to city offices after 5 days with no response, and notifies your team immediately when a permit is approved.'},
+            {'q': 'How do I get more 5-star reviews?', 'a': 'The Review Request Bot sends a review request 2 hours after a satisfied job close. Connect Twilio SMS for highest response rates. Negative responses are routed to the owner for immediate follow-up before they become public reviews.'},
+        ],
+    },
+    'restaurant': {
+        'headline': 'AIOS — Restaurant & Food Service Command Center',
+        'tagline': 'Fill every table, manage every review, and control food cost — all on autopilot.',
+        'quick_start': [
+            'Connect OpenTable or Resy via Integrations to sync reservations and guest history',
+            'Connect Toast or Square POS via Integrations to enable menu analytics and food cost tracking',
+            'Review the Dashboard Service Timeline — confirm lunch prep is on schedule',
+            'Open Email Intelligence → action any negative review alerts and supplier emails first',
+            'Confirm Reservation Agent and Inventory Alert Agent are active in Agent Overview',
+            'Review today\'s inventory against par levels in the Daily Brief — order any below-threshold items',
+        ],
+        'sections': [
+            {'icon': '◎', 'title': 'Dashboard',              'tips': [
+                'Service Timeline shows live daypart status — prep delays need immediate kitchen intervention',
+                'Open Reviews KPI — negative reviews should be responded to within 2 hours',
+                'Food Cost % (MTD) — above target triggers the Food Cost Monitor alert automatically',
+                'AI Actions panel — inventory shortages before dinner service are the highest urgency item',
+            ]},
+            {'icon': '≡', 'title': 'Daily Brief',            'tips': [
+                'Generated at 9:00 AM — includes last night\'s food cost reconciliation and cover count',
+                'Covers Today metric breaks down lunch, dinner, and bar — compare to last week',
+                'Projected Revenue vs. last week shows momentum — use for daily specials and upsell focus',
+                'Review Alerts section shows any new negative reviews posted overnight',
+            ]},
+            {'icon': '⬡', 'title': 'Reservations',          'tips': [
+                'Status filters (Seated, Confirmed, En Route, Waitlisted) show real-time floor status',
+                'VIP and special occasion notes appear in the Notes column — brief FOH team before service',
+                'Waitlisted parties should receive an ETA SMS — configure via Twilio in Integrations',
+                'Private event reservations should be confirmed 48 hours in advance with a detailed BEO',
+            ]},
+            {'icon': '✉', 'title': 'Email Intelligence',     'tips': [
+                'Private event inquiries are high-value — send a proposal back within 1 hour',
+                'Supplier delivery adjustment emails should trigger an immediate inventory check',
+                'Yelp/Google review alerts should be responded to within 2 hours — use the AI draft',
+                'Reservation special request emails should be confirmed and logged for FOH before service',
+            ]},
+            {'icon': '◷', 'title': 'Integrations',           'tips': [
+                'OpenTable or Resy integration is required for the Reservation Agent to manage bookings',
+                'Toast or Square POS powers the Menu Performance Analyst and Food Cost Monitor',
+                'Sysco or US Foods portal integration enables the Inventory Alert Agent to auto-generate POs',
+                'Yelp Business and Google Business Profile APIs enable real-time review response drafting',
+            ]},
+        ],
+        'faqs': [
+            {'q': 'How does the Reservation Agent handle incoming bookings?', 'a': 'Connect OpenTable or Resy via Integrations. The agent handles phone, web, and OpenTable reservations simultaneously, sends SMS confirmations, manages the waitlist, and alerts FOH staff of VIP arrivals and special occasions.'},
+            {'q': 'How does inventory auto-ordering work?', 'a': 'Connect your POS for depletion data and configure par levels via Data Import. The Inventory Alert Agent checks inventory against projected covers each morning and drafts purchase orders for items below threshold — you review and approve before sending.'},
+            {'q': 'How does review response work?', 'a': 'Connect Google Business Profile and Yelp Business via Integrations. The Review Responder monitors for new reviews and drafts a branded response within 10 minutes. You receive an email with a one-click approval link — approved responses are posted automatically.'},
+            {'q': 'How do I use the Menu Performance Analyst?', 'a': 'Connect your POS (Toast or Square) and upload recipe cost cards via Data Import. The analyst runs weekly and flags items with below-target contribution margins or low velocity. The report is emailed to the GM every Monday at 8 AM.'},
+        ],
+    },
+}
+
 # ── Auth Routes ───────────────────────────────────────────────────────────────
 def _complete_login(email: str, method: str = 'email_otp'):
     """Finalize session after any successful authentication method."""
@@ -1613,15 +2018,18 @@ def logs(industry):
     return _page(industry, 'logs', 'pages/logs_page.html',
                  logs=LOGS_DATA.get(industry, []))
 
+@app.route('/<industry>/guide')
+@require_auth
+def guide(industry):
+    g = GUIDE_CONTENT.get(industry)
+    if not g:
+        return redirect(f'/{industry}')
+    return _page(industry, 'guide', 'pages/guide.html', guide=g)
+
 @app.route('/<industry>/import')
 @require_auth
 def data_import(industry):
     return _page(industry, 'import', 'pages/data_import.html')
-
-@app.route('/<industry>/integrations')
-@require_auth
-def integrations(industry):
-    return _page(industry, 'integrations', 'pages/settings.html', setting='integrations')
 
 @app.route('/<industry>/team')
 @require_auth

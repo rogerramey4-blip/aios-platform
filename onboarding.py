@@ -8,7 +8,7 @@ import logging
 from datetime import datetime
 from flask import (Blueprint, render_template, request, redirect,
                    url_for, session, flash, jsonify)
-from models import Tenant, TenantUser, db
+from models import Tenant, TenantUser, Document, db
 from security import validate_email, validate_name, audit
 
 log = logging.getLogger(__name__)
@@ -20,6 +20,9 @@ INDUSTRY_LABELS = {
     'construction': ('🏗️', 'Construction'),
     'medical':      ('🏥', 'Medical / Dental Practice'),
     'brokerage':    ('🏠', 'Real Estate Brokerage'),
+    'hvac':         ('❄️', 'HVAC / Climate Services'),
+    'plumbing':     ('🔩', 'Plumbing Services'),
+    'restaurant':   ('🍽️', 'Restaurant / Food Service'),
 }
 
 PLAN_LABELS = {
@@ -108,6 +111,9 @@ def onboard_create():
         audit('tenant_created', f'tenant:{tenant.id}', 'success',
               f'firm={firm_name} industry={industry} admin={admin_email}')
 
+        # Seed the industry user guide as a document in the new tenant's vault
+        _seed_guide(tenant.id, industry, firm_name)
+
         log.info('[AIOS Onboard] Created tenant %s (%s) for %s', tenant.id, industry, firm_name)
         return jsonify({
             'ok':       True,
@@ -119,3 +125,50 @@ def onboard_create():
         db.rollback()
         log.error('[AIOS Onboard] DB error: %s', exc)
         return jsonify({'ok': False, 'errors': ['Server error — please try again.']}), 500
+
+
+def _seed_guide(tenant_id: str, industry: str, firm_name: str):
+    """Insert the industry user guide as a pre-seeded document in the new tenant's vault."""
+    try:
+        from app import GUIDE_CONTENT
+        from encryption import encrypt_str
+        guide = GUIDE_CONTENT.get(industry)
+        if not guide:
+            return
+        lines = [
+            f"AIOS USER GUIDE — {guide['headline']}",
+            f"{guide['tagline']}",
+            '',
+            'QUICK START CHECKLIST',
+            *[f'  {i+1}. {step}' for i, step in enumerate(guide['quick_start'])],
+            '',
+        ]
+        for s in guide.get('sections', []):
+            lines.append(f"{s['icon']}  {s['title'].upper()}")
+            for tip in s.get('tips', []):
+                lines.append(f'  · {tip}')
+            lines.append('')
+        lines.append('FREQUENTLY ASKED QUESTIONS')
+        for faq in guide.get('faqs', []):
+            lines.append(f"Q: {faq['q']}")
+            lines.append(f"A: {faq['a']}")
+            lines.append('')
+        lines.append('Need help? Contact AI Evolution Services — support@aievolvedservices.com')
+        text = '\n'.join(lines)
+        enc  = encrypt_str(tenant_id, text)
+        doc  = Document(
+            tenant_id      = tenant_id,
+            filename       = f'AIOS User Guide — {industry.title()}.txt',
+            content_type   = 'text/plain',
+            encrypted_blob = enc,
+            size_bytes     = len(text.encode()),
+            classification = 'User Guide',
+            summary_enc    = encrypt_str(tenant_id, f'Getting-started guide for {firm_name} on the AIOS {industry} platform.'),
+            uploaded_by    = 'AIOS System',
+            status         = 'reviewed',
+        )
+        db.add(doc)
+        db.commit()
+        log.info('[AIOS Onboard] Seeded user guide for tenant %s (%s)', tenant_id, industry)
+    except Exception as exc:
+        log.warning('[AIOS Onboard] Could not seed guide for %s: %s', tenant_id, exc)

@@ -1,7 +1,12 @@
-VERSION    = 'v3.2.24'
+VERSION    = 'v3.2.25'
 BUILD_DATE = '2026-05-01'
 
 CHANGES = [
+    'User Guide: /<industry>/guide for all 8 industries — quick start, sections, FAQs, print support (guide.html)',
+    'Onboarding: guide auto-seeded as Document in new tenant vault on account creation',
+    'Onboarding: HVAC, Plumbing, Restaurant added to industry selector',
+    'Nav: User Guide link added to SETTINGS section for all industries',
+    # v3.2.24
     'New industry templates: HVAC, Plumbing, Restaurant — full BRIEF, PIPELINE, AGENTS, LOGS, USE_CASES, EMAILS data',
     'Integration Connector Agents: 31 platforms (+ServiceTitan, Jobber, Toast POS, OpenTable, Yelp)',
     'Dashboard extra_panes: tech_board (HVAC), job_board (Plumbing), service_timeline (Restaurant)',
