@@ -1,14 +1,10 @@
 """
-AIOS Notification — sends transactional emails via Gmail API (HTTPS, not SMTP).
-Fallback: console / Railway logs.
+AIOS Notification — sends transactional emails via SMTP.
+Fallback: console / Railway/Render logs.
 """
 import os
-import json
-import base64
+import smtplib
 import logging
-import urllib.request
-import urllib.error
-import urllib.parse
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
@@ -23,76 +19,41 @@ def _cfg(key: str, default: str = '') -> str:
         return os.getenv(key, default)
 
 
-def _gmail_access_token() -> str:
-    """Exchange stored refresh_token for a short-lived access_token."""
-    # Env var takes priority so token survives DB resets across deploys
-    refresh_token = os.getenv('GMAIL_REFRESH_TOKEN') or _cfg('GMAIL_REFRESH_TOKEN')
-    client_id     = os.getenv('GOOGLE_CLIENT_ID')    or _cfg('GOOGLE_CLIENT_ID')
-    client_secret = os.getenv('GOOGLE_CLIENT_SECRET') or _cfg('GOOGLE_CLIENT_SECRET')
-    if not all([refresh_token, client_id, client_secret]):
-        return ''
-    data = urllib.parse.urlencode({
-        'client_id':     client_id,
-        'client_secret': client_secret,
-        'refresh_token': refresh_token,
-        'grant_type':    'refresh_token',
-    }).encode()
-    req = urllib.request.Request(
-        'https://oauth2.googleapis.com/token',
-        data=data,
-        headers={'Content-Type': 'application/x-www-form-urlencoded'},
-        method='POST',
-    )
-    with urllib.request.urlopen(req, timeout=15) as resp:
-        return json.loads(resp.read()).get('access_token', '')
-
-
-def _send_gmail_api(recipients: list, subject: str, html: str, text: str = '') -> bool:
+def _send_smtp(recipients: list, subject: str, html: str, text: str = '') -> bool:
+    host     = _cfg('SMTP_HOST')
+    port     = int(_cfg('SMTP_PORT') or '587')
+    user     = _cfg('SMTP_USER')
+    password = _cfg('SMTP_PASS')
+    from_    = _cfg('SMTP_FROM') or user
+    if not (host and user and password):
+        return False
     try:
-        access_token = _gmail_access_token()
-        if not access_token:
-            return False
-        from_addr = _cfg('SMTP_USER') or _cfg('GMAIL_FROM') or 'rogerramey4@gmail.com'
         msg = MIMEMultipart('alternative')
         msg['Subject'] = subject
-        msg['From']    = f'AIOS <{from_addr}>'
+        msg['From']    = f'AIOS <{from_}>'
         msg['To']      = ', '.join(recipients)
         if text:
             msg.attach(MIMEText(text, 'plain'))
         msg.attach(MIMEText(html, 'html'))
-        raw = base64.urlsafe_b64encode(msg.as_bytes()).decode().rstrip('=')
-        payload = json.dumps({'raw': raw}).encode()
-        send_req = urllib.request.Request(
-            'https://gmail.googleapis.com/gmail/v1/users/me/messages/send',
-            data=payload,
-            headers={
-                'Authorization': f'Bearer {access_token}',
-                'Content-Type':  'application/json',
-            },
-            method='POST',
-        )
-        with urllib.request.urlopen(send_req, timeout=15) as resp:
-            ok = resp.status == 200
-            if ok:
-                log.warning('[AIOS Notify] Gmail API sent "%s" to %s', subject, recipients)
-            return ok
-    except urllib.error.HTTPError as exc:
-        body = exc.read(512).decode(errors='replace')
-        log.error('[AIOS Notify] Gmail API HTTP %s: %s', exc.code, body)
-        return False
+        with smtplib.SMTP(host, port, timeout=15) as srv:
+            srv.ehlo()
+            srv.starttls()
+            srv.login(user, password)
+            srv.sendmail(from_, recipients, msg.as_string())
+        log.warning('[AIOS Notify] SMTP sent "%s" to %s', subject, recipients)
+        return True
     except Exception as exc:
-        log.error('[AIOS Notify] Gmail API error: %s', exc)
+        log.error('[AIOS Notify] SMTP error: %s', exc)
         return False
 
 
 def send(to: str | list, subject: str, html: str, text: str = ''):
-    """Send via Gmail API. Falls back to console if not yet authorized."""
+    """Send via SMTP. Falls back to console if not configured."""
     recipients = [to] if isinstance(to, str) else to
 
-    if _send_gmail_api(recipients, subject, html, text):
+    if _send_smtp(recipients, subject, html, text):
         return
 
-    # Console fallback — always visible in Railway logs
     import re as _re
     codes = _re.findall(r'<div[^>]*font-size:44px[^>]*>(\d{6})<', html)
     print('\n' + '='*54, flush=True)
@@ -106,7 +67,7 @@ def send(to: str | list, subject: str, html: str, text: str = ''):
 
 def send_conflict_notification(conflict, app_url: str = ''):
     """Email both users involved in a sync conflict."""
-    base_url = app_url or os.getenv('APP_URL', 'https://aios-platform.railway.app')
+    base_url = app_url or os.getenv('APP_URL', '')
     resolve_url = f"{base_url}/api/sync/conflicts/{conflict.id}"
     params = {
         'resource_type': conflict.resource_type or 'record',
@@ -175,7 +136,7 @@ def send_conflict_notification(conflict, app_url: str = ''):
 def send_sync_complete(email: str, accepted: int, conflicts: int, app_url: str = ''):
     if not email:
         return
-    base = app_url or os.getenv('APP_URL', 'https://aios-platform.railway.app')
+    base = app_url or os.getenv('APP_URL', '')
     status = (f'{accepted} change{"s" if accepted != 1 else ""} synced successfully.' if conflicts == 0
               else f'{accepted} change{"s" if accepted != 1 else ""} synced · '
                    f'<strong style="color:#e3b341">{conflicts} conflict{"s" if conflicts != 1 else ""} need your review</strong>')
