@@ -24,6 +24,7 @@
     .step.active{color:var(--gold);border-bottom-color:var(--gold);}
     .qr-block{background:#fff;border-radius:12px;padding:16px;display:flex;justify-content:center;margin-bottom:20px;}
     .qr-block img{width:180px;height:180px;display:block;}
+    .qr-block svg{width:200px;height:200px;display:block;}
     .qr-fallback{background:var(--bg-tertiary);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:20px;font-size:11px;color:var(--text-muted);word-break:break-all;text-align:center;}
     .secret-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text-secondary);margin-bottom:6px;}
     .secret-box{background:var(--bg-tertiary);border:1px solid var(--border);border-radius:8px;padding:14px;font-family:monospace;font-size:15px;font-weight:700;letter-spacing:3px;color:var(--gold);text-align:center;margin-bottom:20px;word-break:break-all;cursor:pointer;position:relative;}
@@ -81,6 +82,34 @@
         Your account is now protected with authenticator-based two-factor authentication.
         The next time you sign in, you will be prompted for your app code instead of an email OTP.
       </div>
+
+      {% if env_line %}
+      <div style="background:rgba(227,179,65,.08);border:1px solid rgba(227,179,65,.35);border-radius:8px;padding:14px 16px;margin-bottom:18px;">
+        <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:var(--gold);margin-bottom:8px;">⚠ Persist across redeploys</div>
+        <div style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin-bottom:10px;">
+          On Railway, the database is wiped on every redeploy — your enrollment will be lost. To survive redeploys, set this env var in your hosting dashboard:
+        </div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text-muted);margin-bottom:4px;">Variable name</div>
+        <div style="background:var(--bg-tertiary);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-family:monospace;font-size:12px;color:var(--text-primary);margin-bottom:10px;">ADMIN_TOTP_SECRETS</div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text-muted);margin-bottom:4px;">Value (includes all enrolled admins)</div>
+        <div id="env-value-box" onclick="copyEnvValue()" style="background:var(--bg-tertiary);border:1px solid var(--border);border-radius:6px;padding:10px 12px;font-family:monospace;font-size:11px;color:var(--gold);word-break:break-all;cursor:pointer;line-height:1.6;">{{ env_line }}</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:8px;line-height:1.5;">
+          Click to copy. After pasting in Railway/Render and redeploying, you can remove the legacy <code style="color:var(--text-secondary);">ADMIN_TOTP_SECRET</code> + <code style="color:var(--text-secondary);">ADMIN_TOTP_EMAIL</code> vars if present.
+        </div>
+      </div>
+      <script>
+        function copyEnvValue(){
+          const el = document.getElementById('env-value-box');
+          const t = el.innerText.trim();
+          navigator.clipboard?.writeText(t).then(()=>{
+            const orig = el.innerText;
+            el.innerText = '✓ Copied to clipboard';
+            setTimeout(()=>{ el.innerText = orig; }, 1400);
+          });
+        }
+      </script>
+      {% endif %}
+
       <a href="/" class="btn-back">← Back to Dashboard</a>
 
     {% else %}
@@ -116,14 +145,18 @@
       </div>
 
       <!-- QR Code -->
-      {% if qr_b64 %}
+      {% if qr_svg %}
+      <div class="qr-block">
+        <div style="width:200px;height:200px;display:flex;align-items:center;justify-content:center;">{{ qr_svg | safe }}</div>
+      </div>
+      {% elif qr_b64 %}
       <div class="qr-block">
         <img src="data:image/png;base64,{{ qr_b64 }}" alt="Scan with authenticator app">
       </div>
       {% else %}
       <div class="qr-fallback">
-        <div style="font-weight:700;color:var(--text-primary);margin-bottom:6px;">QR code unavailable — use manual entry below</div>
-        <div style="color:var(--gold);font-family:monospace;font-size:12px;">{{ uri }}</div>
+        <div style="font-weight:700;color:var(--text-primary);margin-bottom:6px;">QR code unavailable — use the manual entry key below</div>
+        <div style="color:var(--gold);font-family:monospace;font-size:11px;word-break:break-all;">{{ uri }}</div>
       </div>
       {% endif %}
 

@@ -1,7 +1,12 @@
-VERSION    = 'v3.2.27'
-BUILD_DATE = '2026-05-01'
+VERSION    = 'v3.2.28'
+BUILD_DATE = '2026-05-13'
 
 CHANGES = [
+    'Auth: super-admins without TOTP are routed to /totp/setup immediately after email-OTP login — forces authenticator enrollment on first sign-in',
+    'Auth: ADMIN_TOTP_SECRETS env var supports multiple admins (format: email1:secret1,email2:secret2) — survives redeploys for all enrolled super-admins; legacy ADMIN_TOTP_SECRET/ADMIN_TOTP_EMAIL still honored',
+    'TOTP setup success page displays the full ADMIN_TOTP_SECRETS env line (all enrolled admins) with copy-to-clipboard for one-step Railway/Render persistence',
+    'TOTP setup QR code now rendered as inline SVG (no Pillow dependency) — fixes blank-QR symptom on hosts where Pillow native libs fail to install; PNG retained as fallback',
+    # v3.2.27
     'Landing page: "Who Should Have an AIOS?" section with 3 pain-point cards (pipeline follow-through, inbox triage, proactive outreach)',
     'Brokerage: Inbox Triage Agent + Referral Outreach Agent replace Market Analyst + CMA Bot in dashboard and agents detail',
     'Brokerage: guide tagline, email intelligence tips, quick-start, and FAQs refined to reflect inbox triage and proactive outreach pain points',

@@ -1749,6 +1749,8 @@ def _complete_login(email: str, method: str = 'email_otp'):
         session['aios_email']    = email
         session['aios_login_ts'] = now
         audit('login', f'/{method}', 'success', f'admin={email} method={method}')
+        if method != 'totp' and not totp_enabled(email):
+            return redirect(url_for('totp.setup_get'))
         return redirect(url_for('index'))
     user = TenantUser.query.filter_by(email=email, active=True).first()
     if user:

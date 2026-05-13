@@ -29,14 +29,28 @@ _TOTP_LOCKOUT    = 900   # 15 min
 
 
 # ── Public helpers (used by app.py login routes) ──────────────────────────────
-def _admin_totp_env_secret() -> str:
-    """Read admin TOTP secret from env var — persists across DB resets."""
-    return os.getenv('ADMIN_TOTP_SECRET', '')
-
-
-def _admin_totp_env_email() -> str:
-    """Which admin email owns the ADMIN_TOTP_SECRET env var (defaults to Roger)."""
-    return os.getenv('ADMIN_TOTP_EMAIL', 'roger@aievolutionservices.com').strip().lower()
+def _admin_totp_env_secrets() -> dict:
+    """
+    Parse super-admin TOTP secrets from env. Two formats supported:
+      ADMIN_TOTP_SECRETS=email1:secret1,email2:secret2,...   (preferred, multi-admin)
+      ADMIN_TOTP_SECRET=secret + ADMIN_TOTP_EMAIL=email      (legacy, single-admin)
+    Returns lowercase-email → base32-secret dict. Multi-admin entries win on conflict.
+    """
+    out: dict = {}
+    legacy_secret = os.getenv('ADMIN_TOTP_SECRET', '').strip()
+    legacy_email  = os.getenv('ADMIN_TOTP_EMAIL', 'roger@aievolutionservices.com').strip().lower()
+    if legacy_secret and legacy_email:
+        out[legacy_email] = legacy_secret
+    raw = os.getenv('ADMIN_TOTP_SECRETS', '').strip()
+    if raw:
+        for pair in raw.split(','):
+            if ':' not in pair:
+                continue
+            em, sc = pair.split(':', 1)
+            em, sc = em.strip().lower(), sc.strip()
+            if em and sc:
+                out[em] = sc
+    return out
 
 
 def totp_enabled(email: str) -> bool:
@@ -44,8 +58,7 @@ def totp_enabled(email: str) -> bool:
     try:
         email = email.strip().lower()
         if email in ALLOWED_EMAILS:
-            # Env var only applies to the specific admin who set it up
-            if _admin_totp_env_secret() and email == _admin_totp_env_email():
+            if email in _admin_totp_env_secrets():
                 return True
             rec = AdminTOTP.query.filter_by(email=email).first()
             return bool(rec and rec.totp_enabled)
@@ -60,10 +73,9 @@ def get_totp_secret(email: str) -> str | None:
     try:
         email = email.strip().lower()
         if email in ALLOWED_EMAILS:
-            # Env var only applies to the specific admin who set it up
-            env_secret = _admin_totp_env_secret()
-            if env_secret and email == _admin_totp_env_email():
-                return env_secret
+            env_secrets = _admin_totp_env_secrets()
+            if email in env_secrets:
+                return env_secrets[email]
             rec = AdminTOTP.query.filter_by(email=email).first()
             if rec and rec.totp_secret_enc:
                 return decrypt_str('_admin', rec.totp_secret_enc)
@@ -74,6 +86,29 @@ def get_totp_secret(email: str) -> str | None:
         return None
     except Exception:
         return None
+
+
+def build_admin_totp_secrets_env(extra_email: str = '', extra_secret: str = '') -> str:
+    """
+    Build the value for ADMIN_TOTP_SECRETS that captures all currently enrolled admins
+    (env + DB) plus an optional just-enrolled (email, secret) pair. Used to surface the
+    full env-var line on the /totp/setup success page so the operator can paste it into
+    Railway/Render without losing prior admins.
+    """
+    pairs: dict = dict(_admin_totp_env_secrets())
+    try:
+        for rec in AdminTOTP.query.filter_by(totp_enabled=True).all():
+            em = (rec.email or '').strip().lower()
+            if em and em not in pairs and rec.totp_secret_enc:
+                try:
+                    pairs[em] = decrypt_str('_admin', rec.totp_secret_enc)
+                except Exception:
+                    continue
+    except Exception:
+        pass
+    if extra_email and extra_secret:
+        pairs[extra_email.strip().lower()] = extra_secret.strip()
+    return ','.join(f'{e}:{s}' for e, s in pairs.items())
 
 
 def save_totp(email: str, secret: str, enabled: bool):
@@ -87,7 +122,8 @@ def save_totp(email: str, secret: str, enabled: bool):
         rec.totp_secret_enc = encrypt_str('_admin', secret) if secret else ''
         rec.totp_enabled    = enabled
         if secret and enabled:
-            log.warning('[TOTP] IMPORTANT — add to Railway env vars to survive redeploys: ADMIN_TOTP_SECRET=%s', secret)
+            log.warning('[TOTP] IMPORTANT — add to env vars to survive redeploys: ADMIN_TOTP_SECRETS=%s',
+                        build_admin_totp_secrets_env(email, secret))
     else:
         user = TenantUser.query.filter_by(email=email, active=True).first()
         if not user:
@@ -129,8 +165,29 @@ def verify_totp_code(email: str, code: str) -> tuple:
 
 
 # ── QR code ───────────────────────────────────────────────────────────────────
+def _qr_svg(uri: str) -> str:
+    """
+    Render a QR code as inline SVG (no Pillow dependency). Returns the <svg>…</svg>
+    markup as a string, suitable for {{ qr_svg | safe }} in Jinja.
+    """
+    try:
+        import qrcode
+        from qrcode.image.svg import SvgPathImage
+        img = qrcode.make(uri, image_factory=SvgPathImage, box_size=10, border=2)
+        buf = io.BytesIO()
+        img.save(buf)
+        svg = buf.getvalue().decode('utf-8')
+        # Strip XML declaration so it embeds cleanly mid-page
+        if svg.startswith('<?xml'):
+            svg = svg.split('?>', 1)[-1].lstrip()
+        return svg
+    except Exception as exc:
+        log.warning('[TOTP] QR SVG generation failed: %s', exc)
+        return ''
+
+
 def _qr_b64(uri: str) -> str:
-    """Return a base64-encoded PNG of the QR code for the given URI."""
+    """Return a base64-encoded PNG of the QR code (requires Pillow). Used as a fallback."""
     try:
         import qrcode
         img = qrcode.make(uri)
@@ -138,7 +195,7 @@ def _qr_b64(uri: str) -> str:
         img.save(buf, format='PNG')
         return base64.b64encode(buf.getvalue()).decode()
     except Exception as exc:
-        log.warning('[TOTP] QR generation failed: %s', exc)
+        log.warning('[TOTP] QR PNG generation failed: %s', exc)
         return ''
 
 
@@ -157,6 +214,7 @@ def setup_get():
     session['totp_pending_secret'] = secret
     session['totp_pending_uri']    = uri
     return render_template('totp_setup.html',
+        qr_svg   = _qr_svg(uri),
         qr_b64   = _qr_b64(uri),
         secret   = _format_secret(secret),
         uri      = uri,
@@ -182,10 +240,14 @@ def setup_post():
         session.pop('totp_pending_secret', None)
         session.pop('totp_pending_uri', None)
         log.info('[TOTP] Authenticator enabled for %s', email)
+        is_admin = email in ALLOWED_EMAILS
+        env_line = build_admin_totp_secrets_env(email, secret) if is_admin else ''
         return render_template('totp_setup.html',
-            complete=True, qr_b64='', secret='', uri='', already=False, error=None)
+            complete=True, qr_b64='', secret='', uri='', already=False, error=None,
+            env_line=env_line, enrolled_email=email)
 
     return render_template('totp_setup.html',
+        qr_svg   = _qr_svg(uri),
         qr_b64   = _qr_b64(uri),
         secret   = _format_secret(secret),
         uri      = uri,
