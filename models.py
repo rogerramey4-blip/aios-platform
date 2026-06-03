@@ -10,7 +10,8 @@ from sqlalchemy import (
     create_engine, Column, String, Integer, DateTime,
     Boolean, Text, ForeignKey, UniqueConstraint, event
 )
-from sqlalchemy.orm import declarative_base, relationship, sessionmaker, scoped_session
+from sqlalchemy.orm import declarative_base, relationship, sessionmaker, scoped_session, Query as _BaseQuery
+from werkzeug.exceptions import NotFound
 
 DB_PATH = os.getenv('TENANT_DB_PATH', 'aios_tenants.db')
 _engine = create_engine(
@@ -28,7 +29,21 @@ def _set_pragmas(dbapi_conn, _):
     cur.execute('PRAGMA busy_timeout=10000')
     cur.close()
 
-_Session = sessionmaker(bind=_engine)
+class _Query(_BaseQuery):
+    """Adds Flask-SQLAlchemy-style 404 helpers (this project uses plain SQLAlchemy)."""
+    def get_or_404(self, ident):
+        rv = self.get(ident)
+        if rv is None:
+            raise NotFound()
+        return rv
+
+    def first_or_404(self):
+        rv = self.first()
+        if rv is None:
+            raise NotFound()
+        return rv
+
+_Session = sessionmaker(bind=_engine, query_cls=_Query)
 db = scoped_session(_Session)
 
 Base = declarative_base()
@@ -272,5 +287,59 @@ class OTPCode(Base):
     attempts   = Column(Integer,     default=0)
 
 
+def _col_ddl(col) -> str:
+    """Build an `<type> [DEFAULT <const>]` clause for ALTER TABLE ADD COLUMN.
+    Columns are added nullable (no NOT NULL) so they can backfill existing rows."""
+    import logging
+    try:
+        type_sql = col.type.compile(dialect=_engine.dialect)
+    except Exception:
+        type_sql = 'TEXT'
+    default = ''
+    d = col.default
+    if d is not None and getattr(d, 'is_scalar', False):
+        val = d.arg
+        if isinstance(val, bool):
+            default = f' DEFAULT {1 if val else 0}'
+        elif isinstance(val, (int, float)):
+            default = f' DEFAULT {val}'
+        elif isinstance(val, str):
+            default = " DEFAULT '" + val.replace("'", "''") + "'"
+    return type_sql + default
+
+
+def _migrate():
+    """
+    Backfill columns introduced after a table was first created. SQLite's
+    create_all() makes missing tables but never ALTERs existing ones, so older
+    databases drift behind the models (e.g. tenant_users.totp_enabled,
+    documents.version). Generic: adds any model column absent from its table.
+    Idempotent; each ALTER is isolated so one failure can't block the rest.
+    """
+    import logging
+    from sqlalchemy import inspect, text
+    log = logging.getLogger(__name__)
+    insp = inspect(_engine)
+    for table_name, table in Base.metadata.tables.items():
+        if not insp.has_table(table_name):
+            continue
+        existing = {c['name'] for c in insp.get_columns(table_name)}
+        for col in table.columns:
+            if col.name in existing:
+                continue
+            try:
+                with _engine.begin() as conn:
+                    conn.execute(text(
+                        f'ALTER TABLE {table_name} ADD COLUMN {col.name} {_col_ddl(col)}'))
+                log.warning('[AIOS] migrated: added %s.%s', table_name, col.name)
+            except Exception as exc:
+                log.warning('[AIOS] could not add %s.%s: %s', table_name, col.name, exc)
+
+
 def init_db():
     Base.metadata.create_all(_engine)
+    try:
+        _migrate()
+    except Exception:
+        import logging
+        logging.getLogger(__name__).warning('[AIOS] schema migration skipped', exc_info=True)

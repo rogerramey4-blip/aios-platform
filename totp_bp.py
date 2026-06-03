@@ -54,16 +54,26 @@ def _admin_totp_env_secrets() -> dict:
 
 
 def totp_enabled(email: str) -> bool:
-    """Returns True if the user has an active authenticator app registered."""
+    """
+    Returns True only if the user has an active authenticator AND its secret is
+    actually retrievable. A stored-but-undecryptable secret (e.g. after an
+    ENCRYPTION_KEY / SECRET_KEY rotation) is treated as NOT enabled so the user
+    falls back to email-OTP and can re-enroll, instead of being permanently
+    bricked at the authenticator screen with "Authenticator not configured".
+    """
     try:
         email = email.strip().lower()
         if email in ALLOWED_EMAILS:
             if email in _admin_totp_env_secrets():
                 return True
             rec = AdminTOTP.query.filter_by(email=email).first()
-            return bool(rec and rec.totp_enabled)
+            if not (rec and rec.totp_enabled and rec.totp_secret_enc):
+                return False
+            return bool(decrypt_str('_admin', rec.totp_secret_enc))
         user = TenantUser.query.filter_by(email=email, active=True).first()
-        return bool(user and user.totp_enabled)
+        if not (user and user.totp_enabled and user.totp_secret_enc):
+            return False
+        return bool(decrypt_str(user.tenant_id, user.totp_secret_enc))
     except Exception:
         return False
 

@@ -11,8 +11,8 @@ import urllib.request
 from datetime import datetime
 from flask import (Blueprint, render_template, request, redirect,
                    url_for, session, flash, jsonify)
-from models import Tenant, TenantUser, Document, Domain, AuditLog, db
-from auth import require_admin
+from models import Tenant, TenantUser, Document, Domain, AuditLog, AdminTOTP, db
+from auth import require_admin, request_otp, ALLOWED_EMAILS
 from security import validate_domain, validate_email, audit
 
 log = logging.getLogger(__name__)
@@ -352,6 +352,136 @@ def gmail_callback():
             f'padding:8px;font-family:monospace;font-size:12px">{refresh_token}</textarea>'
             f'<p>After adding to Railway, test: <a href="/admin/test-email" style="color:#e3b341">/admin/test-email</a></p>'
             f'</body></html>')
+
+
+# ── Users & Access (global account administration) ────────────────────────────
+@admin_bp.route('/users')
+@require_admin
+def users():
+    """Cross-tenant account administration: super-admins + every tenant user."""
+    from totp_bp import totp_enabled, _admin_totp_env_secrets
+
+    env_admins = _admin_totp_env_secrets()
+    db_admins  = {r.email: r for r in AdminTOTP.query.all()}
+    super_admins = []
+    for email in sorted(ALLOWED_EMAILS):
+        rec = db_admins.get(email)
+        super_admins.append({
+            'email':        email,
+            'has_2fa':      totp_enabled(email),
+            'in_env':       email in env_admins,
+            'has_db_secret': bool(rec and rec.totp_secret_enc),
+            'is_self':      email == session.get('aios_email', ''),
+        })
+
+    tenants = {t.id: t for t in Tenant.query.all()}
+    tenant_users = []
+    for u in TenantUser.query.order_by(TenantUser.created_at.desc()).all():
+        t = tenants.get(u.tenant_id)
+        tenant_users.append({
+            'id':         u.id,
+            'email':      u.email,
+            'name':       u.name or '',
+            'role':       u.role,
+            'active':     bool(u.active),
+            'has_2fa':    bool(getattr(u, 'totp_enabled', False)),
+            'last_login': u.last_login,
+            'firm_name':  t.firm_name if t else '—',
+            'tenant_id':  u.tenant_id,
+            'industry':   t.industry if t else '',
+        })
+
+    return render_template('admin/users.html',
+                           active='users',
+                           super_admins=super_admins,
+                           tenant_users=tenant_users,
+                           admin_email=session.get('aios_email', ''))
+
+
+@admin_bp.route('/user/<user_id>/reset-2fa', methods=['POST'])
+@require_admin
+def user_reset_2fa(user_id):
+    """Disable a tenant user's authenticator so they re-enroll on next login."""
+    user = TenantUser.query.filter_by(id=user_id).first_or_404()
+    user.totp_secret_enc = ''
+    user.totp_enabled    = False
+    db.commit()
+    audit('user_2fa_reset', f'user:{user.email}', 'success',
+          f'by={session.get("aios_email", "")}')
+    return jsonify({'ok': True})
+
+
+@admin_bp.route('/user/<user_id>/toggle-active', methods=['POST'])
+@require_admin
+def user_toggle_active(user_id):
+    """Enable / disable (suspend) a tenant user account."""
+    user = TenantUser.query.filter_by(id=user_id).first_or_404()
+    user.active = not bool(user.active)
+    db.commit()
+    audit('user_active_toggled', f'user:{user.email}', 'success',
+          f'active={user.active} by={session.get("aios_email", "")}')
+    return jsonify({'ok': True, 'active': bool(user.active)})
+
+
+@admin_bp.route('/user/<user_id>/role', methods=['POST'])
+@require_admin
+def user_set_role(user_id):
+    """Change a tenant user's role between admin and member."""
+    user = TenantUser.query.filter_by(id=user_id).first_or_404()
+    role = request.form.get('role', '').strip()
+    if role not in ('admin', 'member'):
+        return jsonify({'ok': False, 'error': 'Invalid role'}), 400
+    user.role = role
+    db.commit()
+    audit('user_role_changed', f'user:{user.email}', 'success',
+          f'role={role} by={session.get("aios_email", "")}')
+    return jsonify({'ok': True, 'role': role})
+
+
+@admin_bp.route('/user/send-login', methods=['POST'])
+@require_admin
+def user_send_login():
+    """
+    OTP-system equivalent of a password reset: email the account a fresh
+    one-time login code. Works for both tenant users and super-admins.
+    """
+    email = request.form.get('email', '').strip().lower()
+    if not validate_email(email):
+        return jsonify({'ok': False, 'error': 'Invalid email'}), 400
+    is_admin  = email in ALLOWED_EMAILS
+    is_tenant = bool(TenantUser.query.filter_by(email=email, active=True).first())
+    if not (is_admin or is_tenant):
+        return jsonify({'ok': False, 'error': 'No active account with that email'}), 404
+    ok, msg = request_otp(email)
+    audit('user_login_code_sent', f'user:{email}', 'success' if ok else 'failure',
+          f'by={session.get("aios_email", "")}')
+    if not ok:
+        return jsonify({'ok': False, 'error': msg}), 400
+    return jsonify({'ok': True})
+
+
+@admin_bp.route('/admin/reset-2fa', methods=['POST'])
+@require_admin
+def admin_reset_2fa():
+    """
+    Clear a super-admin's stored (DB) authenticator secret so they re-enroll on
+    next login. Used to recover an admin bricked by an undecryptable secret.
+    Note: a secret pinned in ADMIN_TOTP_SECRETS / ADMIN_TOTP_SECRET env vars must
+    also be removed from the host env — this is reported back to the caller.
+    """
+    email = request.form.get('email', '').strip().lower()
+    if email not in ALLOWED_EMAILS:
+        return jsonify({'ok': False, 'error': 'Not a super-admin email'}), 400
+    rec = AdminTOTP.query.filter_by(email=email).first()
+    if rec:
+        rec.totp_secret_enc = ''
+        rec.totp_enabled    = False
+        db.commit()
+    from totp_bp import _admin_totp_env_secrets
+    in_env = email in _admin_totp_env_secrets()
+    audit('admin_2fa_reset', f'admin:{email}', 'success',
+          f'by={session.get("aios_email", "")} in_env={in_env}')
+    return jsonify({'ok': True, 'in_env': in_env})
 
 
 # ── SMTP settings ─────────────────────────────────────────────────────────────

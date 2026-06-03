@@ -1,0 +1,172 @@
+{% extends "admin/base.html" %}
+{% set active = "users" %}
+{% block title %}Users & Access{% endblock %}
+
+{% block main %}
+<div class="page-header">
+  <div>
+    <div class="page-title">◈ Users &amp; Access</div>
+    <div class="page-sub">Administer every account — reset 2FA, enable/disable accounts, send login codes</div>
+  </div>
+</div>
+
+<!-- Super-admins -->
+<div class="panel" style="margin-bottom:20px;">
+  <div class="panel-hdr"><div class="panel-title"><span class="panel-icon">★</span>SUPER-ADMINS ({{ super_admins|length }})</div></div>
+  <div style="font-size:11px;color:var(--text-muted);margin:0 0 12px;line-height:1.6;">
+    Platform owners with full management access. These accounts cannot be deactivated.
+    Resetting 2FA clears the stored authenticator so the admin re-enrolls on next sign-in (they fall back to an email code).
+  </div>
+  <table style="width:100%;border-collapse:collapse;font-size:13px;">
+    <thead>
+      <tr style="text-align:left;color:var(--text-muted);font-size:11px;text-transform:uppercase;letter-spacing:1px;">
+        <th style="padding:8px 6px;">Email</th>
+        <th style="padding:8px 6px;">2FA</th>
+        <th style="padding:8px 6px;">Secret source</th>
+        <th style="padding:8px 6px;text-align:right;">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for a in super_admins %}
+      <tr style="border-top:1px solid var(--border);">
+        <td style="padding:10px 6px;font-weight:600;">{{ a.email }}{% if a.is_self %} <span style="color:var(--text-muted);font-weight:400;">(you)</span>{% endif %}</td>
+        <td style="padding:10px 6px;">
+          {% if a.has_2fa %}<span style="color:var(--green);">● Enabled</span>
+          {% else %}<span style="color:var(--text-muted);">○ Email code</span>{% endif %}
+        </td>
+        <td style="padding:10px 6px;color:var(--text-muted);font-size:11px;">
+          {% if a.in_env %}env var{% if a.has_db_secret %} + db{% endif %}
+          {% elif a.has_db_secret %}database
+          {% else %}—{% endif %}
+        </td>
+        <td style="padding:10px 6px;text-align:right;white-space:nowrap;">
+          <button class="btn-sm" onclick="sendLogin('{{ a.email }}')">Send login code</button>
+          <button class="btn-sm" style="background:rgba(227,179,65,0.15);color:var(--gold);"
+                  onclick="adminReset2fa('{{ a.email }}')">Reset 2FA</button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Tenant users -->
+<div class="panel">
+  <div class="panel-hdr"><div class="panel-title"><span class="panel-icon">◈</span>CLIENT USERS ({{ tenant_users|length }})</div></div>
+  <table style="width:100%;border-collapse:collapse;font-size:13px;">
+    <thead>
+      <tr style="text-align:left;color:var(--text-muted);font-size:11px;text-transform:uppercase;letter-spacing:1px;">
+        <th style="padding:8px 6px;">User</th>
+        <th style="padding:8px 6px;">Client</th>
+        <th style="padding:8px 6px;">Role</th>
+        <th style="padding:8px 6px;">Status</th>
+        <th style="padding:8px 6px;">2FA</th>
+        <th style="padding:8px 6px;text-align:right;">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for u in tenant_users %}
+      <tr style="border-top:1px solid var(--border);" id="row-{{ u.id }}">
+        <td style="padding:10px 6px;">
+          <div style="font-weight:600;">{{ u.name or u.email }}</div>
+          <div style="font-size:11px;color:var(--text-muted);">{{ u.email }}</div>
+        </td>
+        <td style="padding:10px 6px;">
+          <a href="/admin/client/{{ u.tenant_id }}" style="color:var(--text-secondary);">{{ u.firm_name }}</a>
+        </td>
+        <td style="padding:10px 6px;">
+          <select onchange="setRole('{{ u.id }}', this.value)"
+                  style="background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:4px 8px;color:var(--text-primary);font-size:12px;">
+            <option value="member" {% if u.role == 'member' %}selected{% endif %}>Member</option>
+            <option value="admin"  {% if u.role == 'admin' %}selected{% endif %}>Admin</option>
+          </select>
+        </td>
+        <td style="padding:10px 6px;">
+          <span class="status-cell" data-id="{{ u.id }}" style="color:{% if u.active %}var(--green){% else %}var(--red){% endif %};">
+            {% if u.active %}● Active{% else %}○ Disabled{% endif %}
+          </span>
+        </td>
+        <td style="padding:10px 6px;">
+          {% if u.has_2fa %}<span style="color:var(--green);">● On</span>
+          {% else %}<span style="color:var(--text-muted);">○ Off</span>{% endif %}
+        </td>
+        <td style="padding:10px 6px;text-align:right;white-space:nowrap;">
+          <button class="btn-sm" onclick="sendLogin('{{ u.email }}')">Send login code</button>
+          <button class="btn-sm" style="background:rgba(227,179,65,0.15);color:var(--gold);"
+                  onclick="reset2fa('{{ u.id }}')">Reset 2FA</button>
+          <button class="btn-sm toggle-btn" data-id="{{ u.id }}"
+                  style="background:rgba(209,36,47,0.12);color:var(--red);"
+                  onclick="toggleActive('{{ u.id }}')">{% if u.active %}Disable{% else %}Enable{% endif %}</button>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" style="padding:18px 6px;color:var(--text-muted);">No client users yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div id="toast" style="position:fixed;bottom:24px;right:24px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:12px 18px;font-size:13px;color:var(--text-primary);box-shadow:0 8px 24px rgba(0,0,0,.4);opacity:0;transform:translateY(8px);transition:all .2s;pointer-events:none;z-index:50;"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const CSRF = '{{ csrf_token() }}';
+
+function toast(msg, ok=true){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.style.borderColor = ok ? 'var(--green)' : 'var(--red)';
+  t.style.opacity='1'; t.style.transform='translateY(0)';
+  setTimeout(()=>{t.style.opacity='0';t.style.transform='translateY(8px)';},3200);
+}
+
+async function post(url, body){
+  const opts={method:'POST', headers:{'X-CSRF-Token':CSRF}};
+  if(body){opts.headers['Content-Type']='application/x-www-form-urlencoded';opts.body=body;}
+  const r=await fetch(url, opts);
+  let j={}; try{ j=await r.json(); }catch(e){}
+  return {ok:r.ok && j.ok, data:j};
+}
+
+async function sendLogin(email){
+  const {ok}=await post('/admin/user/send-login','email='+encodeURIComponent(email));
+  toast(ok ? 'Login code emailed to '+email : 'Could not send code to '+email, ok);
+}
+
+async function reset2fa(id){
+  if(!confirm('Reset 2FA for this user? They will re-enroll on next sign-in.'))return;
+  const {ok}=await post('/admin/user/'+id+'/reset-2fa');
+  toast(ok?'2FA reset — user re-enrolls next sign-in':'Reset failed', ok);
+  if(ok) setTimeout(()=>location.reload(),900);
+}
+
+async function adminReset2fa(email){
+  if(!confirm('Reset 2FA for super-admin '+email+'?\nThey will sign in with an email code and re-enroll their authenticator.'))return;
+  const {ok,data}=await post('/admin/admin/reset-2fa','email='+encodeURIComponent(email));
+  if(ok && data.in_env){
+    toast('DB secret cleared. NOTE: also remove '+email+' from ADMIN_TOTP_SECRETS env var.', true);
+  } else {
+    toast(ok?'2FA reset for '+email:'Reset failed', ok);
+  }
+  if(ok) setTimeout(()=>location.reload(),1400);
+}
+
+async function toggleActive(id){
+  const {ok,data}=await post('/admin/user/'+id+'/toggle-active');
+  if(!ok){toast('Update failed',false);return;}
+  const active=data.active;
+  const cell=document.querySelector('.status-cell[data-id="'+id+'"]');
+  const btn =document.querySelector('.toggle-btn[data-id="'+id+'"]');
+  cell.textContent = active ? '● Active' : '○ Disabled';
+  cell.style.color = active ? 'var(--green)' : 'var(--red)';
+  btn.textContent  = active ? 'Disable' : 'Enable';
+  toast(active?'Account enabled':'Account disabled');
+}
+
+async function setRole(id, role){
+  const {ok}=await post('/admin/user/'+id+'/role','role='+encodeURIComponent(role));
+  toast(ok?'Role updated to '+role:'Role change failed', ok);
+}
+</script>
+{% endblock %}
