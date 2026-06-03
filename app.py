@@ -2205,7 +2205,11 @@ def domain_verify(industry, domain_id):
 # ── Health check ──────────────────────────────────────────────────────────────
 @app.route('/health')
 def health():
-    return jsonify({'status': 'ok', 'version': 'v3.1.0'})
+    try:
+        from version import VERSION
+    except Exception:
+        VERSION = 'unknown'
+    return jsonify({'status': 'ok', 'version': VERSION})
 
 
 # ── Offline fallback page ─────────────────────────────────────────────────────
