@@ -51,7 +51,19 @@ Base.query = db.query_property()
 
 INDUSTRIES = ['agency', 'legal', 'construction', 'medical', 'brokerage', 'hvac', 'plumbing', 'restaurant']
 PLANS      = ['trial', 'starter', 'growth', 'enterprise']
-ROLES      = ['admin', 'member']
+ROLES      = ['admin', 'member', 'builder']
+# 'builder' = an AIE-side implementer assigned to ONE tenant with full config rights
+# over that tenant's AIOS (integrations, documents, domains, the client's own users,
+# settings) via UI and CLI. Scoped, revocable, never cross-tenant, never super-admin.
+
+# Default scopes granted to a builder's API token unless narrowed at issue time.
+API_SCOPES = [
+    'integrations:read', 'integrations:write',
+    'documents:read',    'documents:write',
+    'domains:read',      'domains:write',
+    'users:read',        'users:write',
+    'settings:read',     'settings:write',
+]
 
 
 class Tenant(Base):
@@ -285,6 +297,58 @@ class OTPCode(Base):
     code       = Column(String(6),   nullable=False)
     expires_at = Column(DateTime,    nullable=False)
     attempts   = Column(Integer,     default=0)
+
+
+class ApiToken(Base):
+    """
+    Scoped personal access token for CLI / REST automation.
+
+    Security model (mirrors GitHub PATs):
+      • Only the SHA-256 *hash* of the secret is stored — the plaintext is shown
+        once at creation and is never recoverable.
+      • Every token is bound to exactly one tenant_id; the API constrains all
+        calls to that tenant regardless of what the caller requests.
+      • Revocable instantly (revoked flag) and auto-expiring (expires_at).
+      • Tied to a TenantUser — deactivating that user disables all their tokens.
+    """
+    __tablename__ = 'api_tokens'
+
+    id           = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    tenant_id    = Column(String(36), ForeignKey('tenants.id'),      nullable=False)
+    user_id      = Column(String(36), ForeignKey('tenant_users.id'), nullable=False)
+    name         = Column(String(120), default='')        # e.g. "Kevin's laptop CLI"
+    token_prefix = Column(String(20),  default='')         # display hint, e.g. aios_pat_3f9c
+    token_hash   = Column(String(64),  nullable=False, index=True)   # sha256 hex of secret
+    scopes       = Column(String(300), default='')         # csv subset of API_SCOPES
+    created_by   = Column(String(200), default='')         # super-admin who issued it
+    created_at   = Column(DateTime,    default=datetime.utcnow)
+    last_used_at = Column(DateTime,    nullable=True)
+    last_used_ip = Column(String(50),  default='')
+    expires_at   = Column(DateTime,    nullable=True)
+    revoked      = Column(Boolean,     default=False)
+    revoked_at   = Column(DateTime,    nullable=True)
+
+    def is_valid(self) -> bool:
+        if self.revoked:
+            return False
+        if self.expires_at and datetime.utcnow() > self.expires_at:
+            return False
+        return True
+
+    def to_dict(self):
+        return {
+            'id':           self.id,
+            'name':         self.name,
+            'token_prefix': self.token_prefix,
+            'scopes':       [s for s in (self.scopes or '').split(',') if s],
+            'created_by':   self.created_by,
+            'created_at':   self.created_at.isoformat() if self.created_at else None,
+            'last_used_at': self.last_used_at.isoformat() if self.last_used_at else None,
+            'last_used_ip': self.last_used_ip,
+            'expires_at':   self.expires_at.isoformat() if self.expires_at else None,
+            'revoked':      bool(self.revoked),
+            'valid':        self.is_valid(),
+        }
 
 
 def _col_ddl(col) -> str:

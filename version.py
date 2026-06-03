@@ -1,7 +1,13 @@
-VERSION    = 'v3.2.29'
+VERSION    = 'v3.3.0'
 BUILD_DATE = '2026-06-03'
 
 CHANGES = [
+    'Client Builders: assign a revocable, single-client implementer (TenantUser role=builder) who can configure all per-tenant aspects of one client — integrations, documents, domains, staff users, settings — via UI and CLI, and never reach other clients or the super-admin panel',
+    'Scoped API tokens: super-admins issue per-builder Bearer tokens (Admin → client → Builders & Access) — SHA-256 hashed at rest, shown once, scoped, 90-day default expiry, last-used tracked, instantly revocable',
+    'REST API /api/v1: token-authenticated, hard-scoped to the token tenant — whoami, integrations, documents, domains, users, settings (api_bp.py)',
+    'aios CLI: zero-dependency command-line client for builders (cli/aios.py) — login, integrations, docs, domains, users, settings',
+    'Security: /api/v1 mutations are Bearer-only (cookie auth rejected) so the CSRF-exempt /api prefix adds no CSRF surface; builders forced to enrol 2FA like super-admins',
+    'Security: every /<industry>/* route is now locked to the logged-in tenant user’s own industry — closes URL-tampering cross-client access',
     'Auth fix: super-admins (kevin@) un-bricked — a stored authenticator secret that cannot be decrypted (e.g. after an ENCRYPTION_KEY/SECRET_KEY rotation) is now treated as no-2FA, so login falls back to an email code and re-enrollment instead of failing forever at the authenticator screen',
     'DB: generic auto-migration backfills model columns missing from existing tables (fixes tenant_users.totp_enabled/totp_secret_enc and documents.version/modified_* schema drift that 500-ed the admin panel)',
     'DB: added Flask-SQLAlchemy-style get_or_404/first_or_404 helpers to the plain-SQLAlchemy session — repairs all existing admin routes that relied on them',

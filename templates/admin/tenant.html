@@ -81,8 +81,9 @@
       <input id="newUserEmail" type="email" placeholder="user@company.com" style="width:100%;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text-primary);font-size:12px;margin-bottom:6px;">
       <input id="newUserName"  type="text"  placeholder="Full name (optional)" style="width:100%;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text-primary);font-size:12px;margin-bottom:6px;">
       <select id="newUserRole" style="width:100%;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text-primary);font-size:12px;margin-bottom:8px;">
-        <option value="admin">Admin</option>
         <option value="member" selected>Member</option>
+        <option value="admin">Admin</option>
+        <option value="builder">Builder (AIE implementer — full config, this client only)</option>
       </select>
       <button class="btn-sm" onclick="addUser()" style="width:100%;">Add User</button>
     </div>
@@ -150,6 +151,100 @@
     <input id="newDomain" type="text" placeholder="dashboard.yourcompany.com" style="width:100%;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--text-primary);font-size:13px;margin-bottom:10px;">
     <button class="btn-sm" onclick="addDomain()">Register Domain</button>
     <div id="domainInstructions" style="display:none;margin-top:14px;font-size:12px;"></div>
+  </div>
+</div>
+
+<!-- Builders & Access -->
+<div class="panel" style="margin-bottom:20px;">
+  <div class="panel-hdr">
+    <div class="panel-title"><span class="panel-icon">⚿</span>BUILDERS &amp; ACCESS</div>
+  </div>
+  <p style="font-size:12px;color:var(--text-muted);margin:0 0 14px;">
+    A <strong style="color:var(--gold);">Builder</strong> is an implementer assigned to this client only. They configure
+    integrations, documents, domains, users and settings via the UI and via the CLI/REST API using a scoped token below.
+    Builders are forced to enrol 2FA and cannot reach other clients or the super-admin panel. Add one via the
+    <strong>Users</strong> panel with role <em>Builder</em>; revoke by disabling the user or revoking their tokens.
+  </p>
+
+  <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Assigned Builders</div>
+  {% for b in builders %}
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
+    <div>
+      <div style="font-size:13px;font-weight:600;">{{ b.name or b.email }}
+        <span class="badge" style="font-size:10px;background:rgba(227,179,65,0.15);color:var(--gold);margin-left:6px;">builder</span>
+        {% if not b.active %}<span class="badge" style="font-size:10px;background:rgba(209,36,47,0.15);color:var(--red);margin-left:4px;">disabled</span>{% endif %}
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);">{{ b.email }} · 2FA: {{ 'on' if b.totp_enabled else 'pending enrolment' }}</div>
+    </div>
+    <button class="btn-sm" onclick="issueTokenFor('{{ b.id }}','{{ b.email }}')">Issue CLI Token</button>
+  </div>
+  {% else %}
+  <div style="color:var(--text-muted);font-size:12px;padding:10px 0;">No builders assigned. Add a user with role <em>Builder</em> in the Users panel above.</div>
+  {% endfor %}
+
+  <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin:18px 0 8px;">CLI / API Tokens</div>
+  {% if tokens %}
+  <table class="health-table">
+    <thead><tr><th>Name</th><th>Prefix</th><th>Scopes</th><th>Last used</th><th>Expires</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+      {% for tk in tokens %}
+      <tr>
+        <td style="font-weight:600;">{{ tk.name }}</td>
+        <td style="font-family:monospace;font-size:11px;color:var(--text-muted);">{{ tk.token_prefix }}…</td>
+        <td style="font-size:10px;color:var(--text-muted);">{{ tk.scopes.split(',')|length }} scopes</td>
+        <td style="font-size:11px;color:var(--text-muted);">{{ tk.last_used_at.strftime('%b %d %H:%M') if tk.last_used_at else 'never' }}</td>
+        <td style="font-size:11px;color:var(--text-muted);">{{ tk.expires_at.strftime('%b %d, %Y') if tk.expires_at else 'never' }}</td>
+        <td>
+          {% if tk.revoked %}<span class="hdot hdot-red"></span> revoked
+          {% elif not tk.is_valid() %}<span class="hdot hdot-amber"></span> expired
+          {% else %}<span class="hdot hdot-green"></span> active{% endif %}
+        </td>
+        <td>{% if not tk.revoked %}<button class="btn-sm" style="color:var(--red);background:rgba(209,36,47,0.1);" onclick="revokeToken('{{ tk.id }}')">Revoke</button>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div style="color:var(--text-muted);font-size:12px;padding:10px 0;">No tokens issued.</div>
+  {% endif %}
+</div>
+
+<!-- Issue-token modal -->
+<div id="tokenModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9998;align-items:center;justify-content:center;">
+  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:24px;width:440px;max-width:92vw;">
+    <div style="font-size:15px;font-weight:700;margin-bottom:4px;">Issue CLI Token</div>
+    <div id="tokenForWho" style="font-size:12px;color:var(--text-muted);margin-bottom:16px;"></div>
+
+    <div id="tokenForm">
+      <label style="font-size:11px;color:var(--text-muted);">Token name</label>
+      <input id="tokenName" type="text" placeholder="e.g. Kevin's laptop" style="width:100%;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text-primary);font-size:13px;margin:4px 0 12px;">
+
+      <label style="font-size:11px;color:var(--text-muted);">Scopes</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin:6px 0 12px;">
+        {% for s in api_scopes %}
+        <label style="font-size:12px;display:flex;align-items:center;gap:6px;"><input type="checkbox" class="scopeBox" value="{{ s }}" checked> {{ s }}</label>
+        {% endfor %}
+      </div>
+
+      <label style="font-size:12px;display:flex;align-items:center;gap:6px;margin-bottom:12px;">
+        <input type="checkbox" id="noExpiry"> No expiry (otherwise expires in {{ 90 }} days)
+      </label>
+
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button class="btn-sm" style="background:var(--bg-input);" onclick="closeTokenModal()">Cancel</button>
+        <button class="btn-sm" onclick="createToken()">Create Token</button>
+      </div>
+    </div>
+
+    <div id="tokenResult" style="display:none;">
+      <div style="font-size:12px;color:var(--gold);font-weight:700;margin-bottom:6px;">Copy this token now — it is shown only once.</div>
+      <textarea id="tokenValue" readonly style="width:100%;height:70px;background:#0a0e14;color:var(--green);border:1px solid var(--border);border-radius:6px;padding:10px;font-family:monospace;font-size:12px;"></textarea>
+      <div style="font-size:11px;color:var(--text-muted);margin:8px 0;">Builder use: <code>aios login</code> then paste this token.</div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button class="btn-sm" onclick="copyToken()">Copy</button>
+        <button class="btn-sm" onclick="location.reload()">Done</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -270,6 +365,52 @@ function removeDomain(domainId) {
   fetch(`/admin/client/${TENANT_ID}/domain/${domainId}/remove`, {
     method: 'POST', headers: {'X-CSRF-Token': CSRF}
   }).then(r=>r.json()).then(d=>{ if(d.ok) location.reload(); });
+}
+
+let _tokenUserId = null;
+function issueTokenFor(userId, email) {
+  _tokenUserId = userId;
+  document.getElementById('tokenForWho').textContent = 'For builder: ' + email;
+  document.getElementById('tokenForm').style.display   = 'block';
+  document.getElementById('tokenResult').style.display = 'none';
+  document.getElementById('tokenName').value = '';
+  document.getElementById('noExpiry').checked = false;
+  document.querySelectorAll('.scopeBox').forEach(b => b.checked = true);
+  document.getElementById('tokenModal').style.display = 'flex';
+}
+function closeTokenModal() { document.getElementById('tokenModal').style.display = 'none'; }
+
+function createToken() {
+  const name   = document.getElementById('tokenName').value.trim() || 'CLI token';
+  const scopes = [...document.querySelectorAll('.scopeBox:checked')].map(b => b.value);
+  if (!scopes.length) { showToast('Select at least one scope', true); return; }
+  const params = new URLSearchParams();
+  params.append('user_id', _tokenUserId);
+  params.append('name', name);
+  params.append('expires_days', '90');
+  if (document.getElementById('noExpiry').checked) params.append('no_expiry', '1');
+  scopes.forEach(s => params.append('scopes', s));
+  fetch(`/admin/client/${TENANT_ID}/token/issue`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/x-www-form-urlencoded','X-CSRF-Token': CSRF},
+    body: params.toString()
+  }).then(r=>r.json()).then(d=>{
+    if (d.ok) {
+      document.getElementById('tokenForm').style.display   = 'none';
+      document.getElementById('tokenResult').style.display = 'block';
+      document.getElementById('tokenValue').value = d.token;
+    } else showToast(d.error, true);
+  });
+}
+function copyToken() {
+  const el = document.getElementById('tokenValue');
+  el.select(); navigator.clipboard.writeText(el.value); showToast('Token copied');
+}
+function revokeToken(tokenId) {
+  if (!confirm('Revoke this token? Any CLI using it stops working immediately.')) return;
+  fetch(`/admin/client/${TENANT_ID}/token/${tokenId}/revoke`, {
+    method: 'POST', headers: {'X-CSRF-Token': CSRF}
+  }).then(r=>r.json()).then(d=>{ if(d.ok) location.reload(); else showToast(d.error||'Failed', true); });
 }
 
 function showToast(msg, err=false) {

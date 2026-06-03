@@ -9,13 +9,15 @@ except ImportError:
     pass
 
 from auth import (request_otp, verify_otp, check_authorized,
-                  require_auth, require_admin, mask_email, ALLOWED_EMAILS)
+                  require_auth, require_admin, mask_email, ALLOWED_EMAILS,
+                  industry_scope_violation)
 from models import init_db, Tenant, TenantUser, Document, Domain, TenantIntegration, db
 from security import init_security, audit
 from onboarding import onboard_bp
 from admin_bp import admin_bp
 from sync_bp import sync_bp
 from totp_bp import totp_bp, totp_enabled, verify_totp_code
+from api_bp import api_bp
 import werkzeug.utils as wz
 
 app = Flask(__name__)
@@ -47,6 +49,7 @@ app.register_blueprint(onboard_bp)
 app.register_blueprint(admin_bp)
 app.register_blueprint(sync_bp)
 app.register_blueprint(totp_bp)
+app.register_blueprint(api_bp)
 
 # ── Custom-domain tenant routing ──────────────────────────────────────────────
 @app.before_request
@@ -58,6 +61,22 @@ def _resolve_tenant_domain():
     dom = Domain.query.filter_by(domain=host, verified=True).first()
     if dom:
         session['_domain_tenant'] = dom.tenant_id
+
+
+@app.before_request
+def _enforce_industry_scope():
+    """
+    Lock every /<industry>/* route to the logged-in tenant user's own industry,
+    so a builder/user assigned to one client cannot reach another client's
+    workspace by editing the URL. Runs after routing, so request.view_args is
+    populated. Super-admins bypass (handled inside industry_scope_violation).
+    """
+    industry = (request.view_args or {}).get('industry')
+    if not industry or industry not in INDUSTRIES:
+        return
+    own = industry_scope_violation(industry)
+    if own:
+        return redirect(url_for('dashboard', industry=own))
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 def _greeting():
@@ -1776,6 +1795,10 @@ def _complete_login(email: str, method: str = 'email_otp'):
         session['tenant_industry'] = user.tenant.industry
         session['tenant_login_ts'] = now
         audit('login', f'/{method}', 'success', f'tenant_user={email} method={method}')
+        # Builders are privileged implementers — force authenticator enrollment
+        # on first sign-in, exactly like super-admins.
+        if user.role == 'builder' and method != 'totp' and not totp_enabled(email):
+            return redirect(url_for('totp.setup_get'))
         return redirect(url_for('dashboard', industry=user.tenant.industry))
     return redirect(url_for('login'))
 

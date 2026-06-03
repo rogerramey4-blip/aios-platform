@@ -11,8 +11,11 @@ import urllib.request
 from datetime import datetime
 from flask import (Blueprint, render_template, request, redirect,
                    url_for, session, flash, jsonify)
-from models import Tenant, TenantUser, Document, Domain, AuditLog, AdminTOTP, db
-from auth import require_admin, request_otp, ALLOWED_EMAILS
+from datetime import timedelta
+from models import (Tenant, TenantUser, Document, Domain, AuditLog, AdminTOTP,
+                    ApiToken, API_SCOPES, db)
+from auth import (require_admin, request_otp, ALLOWED_EMAILS,
+                  generate_token, TOKEN_TTL_DAYS)
 from security import validate_domain, validate_email, audit
 
 log = logging.getLogger(__name__)
@@ -34,7 +37,8 @@ def _admin_ctx():
 
 INDUSTRY_ICONS = {
     'agency': '🏢', 'legal': '⚖️', 'construction': '🏗️',
-    'medical': '🏥', 'brokerage': '🏠',
+    'medical': '🏥', 'brokerage': '🏠', 'hvac': '❄️',
+    'plumbing': '🔧', 'restaurant': '🍽️',
 }
 PLAN_ORDER = {'trial': 0, 'starter': 1, 'growth': 2, 'enterprise': 3}
 
@@ -109,9 +113,16 @@ def tenant_detail(tenant_id):
                .order_by(AuditLog.ts.desc()).limit(30).all())
     icon    = INDUSTRY_ICONS.get(tenant.industry, '▤')
 
+    builders = [u for u in users if u.role == 'builder']
+    tokens   = (ApiToken.query.filter_by(tenant_id=tenant_id)
+                .order_by(ApiToken.created_at.desc()).all())
+
     return render_template('admin/tenant.html',
                            tenant=tenant,
                            users=users,
+                           builders=builders,
+                           tokens=tokens,
+                           api_scopes=API_SCOPES,
                            docs=docs,
                            domains=domains,
                            audits=audits,
@@ -164,7 +175,7 @@ def add_user(tenant_id):
 
     if not validate_email(email):
         return jsonify({'ok': False, 'error': 'Invalid email'}), 400
-    if role not in ('admin', 'member'):
+    if role not in ('admin', 'member', 'builder'):
         return jsonify({'ok': False, 'error': 'Invalid role'}), 400
     if TenantUser.query.filter_by(email=email).first():
         return jsonify({'ok': False, 'error': f'{email} already registered'}), 400
@@ -173,6 +184,11 @@ def add_user(tenant_id):
     db.add(user)
     db.commit()
     audit('user_added', f'tenant:{tenant_id}', 'success', f'email={email} role={role}')
+    if role == 'builder':
+        # send the assigned builder a first-login code immediately
+        request_otp(email)
+        audit('builder_assigned', f'tenant:{tenant_id}', 'success',
+              f'email={email} by={session.get("aios_email","")}')
     return jsonify({'ok': True, 'user_id': user.id})
 
 
@@ -184,6 +200,59 @@ def remove_user(tenant_id, user_id):
     db.delete(user)
     db.commit()
     audit('user_removed', f'tenant:{tenant_id}', 'success', f'email={user.email}')
+    return jsonify({'ok': True})
+
+
+# ── Scoped API tokens (CLI access for builders) ───────────────────────────────
+@admin_bp.route('/client/<tenant_id>/token/issue', methods=['POST'])
+@require_admin
+def token_issue(tenant_id):
+    """
+    Mint a scoped CLI token for a builder of this tenant. The plaintext secret is
+    returned ONCE and never stored — only its SHA-256 hash is persisted.
+    """
+    Tenant.query.get_or_404(tenant_id)
+    user_id = request.form.get('user_id', '').strip()
+    name    = request.form.get('name', '').strip()[:120] or 'CLI token'
+    raw_scopes = request.form.getlist('scopes') or \
+        [s.strip() for s in request.form.get('scopes', '').split(',') if s.strip()]
+    scopes = [s for s in raw_scopes if s in API_SCOPES] or list(API_SCOPES)
+
+    user = TenantUser.query.filter_by(id=user_id, tenant_id=tenant_id).first()
+    if not user:
+        return jsonify({'ok': False, 'error': 'Select a user in this client'}), 400
+    if user.role != 'builder':
+        return jsonify({'ok': False, 'error': 'Tokens may only be issued to builders'}), 400
+
+    no_expiry = request.form.get('no_expiry') in ('1', 'true', 'on')
+    days_raw  = request.form.get('expires_days', '').strip()
+    days      = int(days_raw) if days_raw.isdigit() else TOKEN_TTL_DAYS
+    expires_at = None if no_expiry else datetime.utcnow() + timedelta(days=days)
+
+    secret, token_hash, prefix = generate_token()
+    tok = ApiToken(
+        tenant_id=tenant_id, user_id=user.id, name=name,
+        token_prefix=prefix, token_hash=token_hash, scopes=','.join(scopes),
+        created_by=session.get('aios_email', ''), expires_at=expires_at,
+    )
+    db.add(tok)
+    db.commit()
+    audit('api_token_issued', f'tenant:{tenant_id}', 'success',
+          f'user={user.email} scopes={len(scopes)} expires={expires_at} by={session.get("aios_email","")}')
+    # secret returned exactly once
+    return jsonify({'ok': True, 'token': secret, 'prefix': prefix,
+                    'expires_at': expires_at.isoformat() if expires_at else None})
+
+
+@admin_bp.route('/client/<tenant_id>/token/<token_id>/revoke', methods=['POST'])
+@require_admin
+def token_revoke(tenant_id, token_id):
+    tok = ApiToken.query.filter_by(id=token_id, tenant_id=tenant_id).first_or_404()
+    tok.revoked    = True
+    tok.revoked_at = datetime.utcnow()
+    db.commit()
+    audit('api_token_revoked', f'tenant:{tenant_id}', 'success',
+          f'token={tok.token_prefix} by={session.get("aios_email","")}')
     return jsonify({'ok': True})
 
 
@@ -429,7 +498,7 @@ def user_set_role(user_id):
     """Change a tenant user's role between admin and member."""
     user = TenantUser.query.filter_by(id=user_id).first_or_404()
     role = request.form.get('role', '').strip()
-    if role not in ('admin', 'member'):
+    if role not in ('admin', 'member', 'builder'):
         return jsonify({'ok': False, 'error': 'Invalid role'}), 400
     user.role = role
     db.commit()
