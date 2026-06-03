@@ -1,7 +1,13 @@
-VERSION    = 'v3.2.28'
-BUILD_DATE = '2026-05-13'
+VERSION    = 'v3.2.29'
+BUILD_DATE = '2026-06-03'
 
 CHANGES = [
+    'Auth fix: super-admins (kevin@) un-bricked — a stored authenticator secret that cannot be decrypted (e.g. after an ENCRYPTION_KEY/SECRET_KEY rotation) is now treated as no-2FA, so login falls back to an email code and re-enrollment instead of failing forever at the authenticator screen',
+    'DB: generic auto-migration backfills model columns missing from existing tables (fixes tenant_users.totp_enabled/totp_secret_enc and documents.version/modified_* schema drift that 500-ed the admin panel)',
+    'DB: added Flask-SQLAlchemy-style get_or_404/first_or_404 helpers to the plain-SQLAlchemy session — repairs all existing admin routes that relied on them',
+    'Admin: new Users & Access panel (/admin/users) — roger@ and kevin@ can list every account, reset/disable 2FA (admins + tenant users), enable/disable accounts, change roles, and email a one-time login code (the OTP-system equivalent of a password reset)',
+    'Startup: loud CRITICAL log when SECRET_KEY or ENCRYPTION_KEY is unset, since that is what breaks encrypted 2FA secrets across restarts',
+    # v3.2.28
     'Auth: super-admins without TOTP are routed to /totp/setup immediately after email-OTP login — forces authenticator enrollment on first sign-in',
     'Auth: ADMIN_TOTP_SECRETS env var supports multiple admins (format: email1:secret1,email2:secret2) — survives redeploys for all enrolled super-admins; legacy ADMIN_TOTP_SECRET/ADMIN_TOTP_EMAIL still honored',
     'TOTP setup success page displays the full ADMIN_TOTP_SECRETS env line (all enrolled admins) with copy-to-clipboard for one-step Railway/Render persistence',

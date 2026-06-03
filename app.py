@@ -20,6 +20,19 @@ import werkzeug.utils as wz
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY') or secrets.token_hex(32)
+
+# ── Key-stability guard ───────────────────────────────────────────────────────
+# If SECRET_KEY is unset, a fresh random key is minted on every boot. That both
+# invalidates all sessions AND (because ENCRYPTION_KEY falls back to deriving from
+# SECRET_KEY) makes every Fernet-encrypted secret — including stored TOTP
+# authenticator secrets — undecryptable after a restart. That bricks 2FA logins.
+if not os.getenv('SECRET_KEY') or not os.getenv('ENCRYPTION_KEY'):
+    import logging as _logging
+    _logging.getLogger(__name__).error(
+        '[AIOS] CRITICAL: %s not set — encrypted secrets (incl. TOTP 2FA) will '
+        'break on the next restart and authenticator logins will fail. Set both '
+        'as STABLE environment variables in your host (Railway/Render).',
+        ' and '.join(k for k in ('SECRET_KEY', 'ENCRYPTION_KEY') if not os.getenv(k)))
 app.config['MAX_CONTENT_LENGTH'] = 25 * 1024 * 1024  # 25 MB upload limit
 
 # ── Initialise DB + security middleware ───────────────────────────────────────
