@@ -21,6 +21,7 @@ totp_bp = Blueprint('totp', __name__, url_prefix='/totp')
 
 ISSUER      = 'AIOS'
 TOTP_WINDOW = 1   # ±1 × 30 s window for clock drift
+_B32_ALPHABET = frozenset('ABCDEFGHIJKLMNOPQRSTUVWXYZ234567')  # RFC 4648 base32
 
 # Simple in-memory TOTP attempt tracker (mirrors OTP lockout in auth.py)
 _totp_fails: dict = {}
@@ -36,8 +37,14 @@ def _admin_totp_env_secrets() -> dict:
       ADMIN_TOTP_SECRET=secret + ADMIN_TOTP_EMAIL=email      (legacy, single-admin)
     Returns lowercase-email → base32-secret dict. Multi-admin entries win on conflict.
     """
+    # Secrets are base32 (RFC 4648: A-Z, 2-7). Tolerate copy/paste artefacts —
+    # the setup screen shows the secret space-grouped ("ABCD EFGH ..."), and copies
+    # from the truncated log line can drag in an ellipsis or stray punctuation. Keep
+    # ONLY valid base32 chars (upper-cased) so a messy paste self-heals into a usable
+    # secret instead of raising "Non-base32 digit found" in the verify path.
+    _clean = lambda s: ''.join(c for c in s.upper() if c in _B32_ALPHABET)
     out: dict = {}
-    legacy_secret = os.getenv('ADMIN_TOTP_SECRET', '').strip()
+    legacy_secret = _clean(os.getenv('ADMIN_TOTP_SECRET', ''))
     legacy_email  = os.getenv('ADMIN_TOTP_EMAIL', 'roger@aievolutionservices.com').strip().lower()
     if legacy_secret and legacy_email:
         out[legacy_email] = legacy_secret
@@ -47,7 +54,7 @@ def _admin_totp_env_secrets() -> dict:
             if ':' not in pair:
                 continue
             em, sc = pair.split(':', 1)
-            em, sc = em.strip().lower(), sc.strip()
+            em, sc = em.strip().lower(), _clean(sc)
             if em and sc:
                 out[em] = sc
     return out
@@ -159,7 +166,15 @@ def verify_totp_code(email: str, code: str) -> tuple:
     if not secret:
         return False, 'Authenticator not configured for this account.'
 
-    if pyotp.TOTP(secret).verify(code.strip(), valid_window=TOTP_WINDOW):
+    try:
+        verified = pyotp.TOTP(secret).verify(code.strip(), valid_window=TOTP_WINDOW)
+    except Exception as exc:
+        # A malformed secret (e.g. invalid base32 from a bad ADMIN_TOTP_SECRETS paste)
+        # must not 500 the login — fail cleanly so the user can use the email-code fallback.
+        log.error('[TOTP] secret for %s is unusable (check ADMIN_TOTP_SECRETS formatting): %s', email, exc)
+        return False, 'Authenticator is misconfigured for this account. Use the email-code option to sign in.'
+
+    if verified:
         _totp_fails.pop(email, None)
         return True, 'OK'
 

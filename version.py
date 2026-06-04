@@ -1,5 +1,5 @@
 VERSION    = 'v3.3.0'
-BUILD_DATE = '2026-06-03'
+BUILD_DATE = '2026-06-04'
 
 CHANGES = [
     'Agent builder: per-tenant agents a builder creates/edits/enables/disables for their client (TenantAgent, encrypted config) — managed in the workspace Agents page, via REST /api/v1/agents, and via `aios agents` CLI; the static AGENTS_DETAIL set now shows as a Template Library alongside them',
@@ -9,6 +9,13 @@ CHANGES = [
     'aios CLI: zero-dependency command-line client for builders (cli/aios.py) — login, integrations, docs, domains, users, settings',
     'Security: /api/v1 mutations are Bearer-only (cookie auth rejected) so the CSRF-exempt /api prefix adds no CSRF surface; builders forced to enrol 2FA like super-admins',
     'Security: every /<industry>/* route is now locked to the logged-in tenant user’s own industry — closes URL-tampering cross-client access',
+    # v3.2.31 (auth + email fixes merged from master)
+    'Email: OTP / 2FA emails now actually send via the Gmail API over HTTPS (notify.py) — the OAuth flow at /admin/gmail-auth stored a GMAIL_REFRESH_TOKEN but nothing ever used it; delivery order is now Gmail API → SMTP → console/log. Fixes "email token not received" on Railway where outbound SMTP is blocked',
+    'Email: /admin/test-email diagnostics now report Gmail API config + live token-refresh status instead of only SMTP/Resend',
+    'Auth fix: ADMIN_TOTP_SECRETS secrets self-heal — parser keeps only valid base32 chars (A-Z, 2-7), so a secret pasted with spaces, an ellipsis from the truncated log line, or other punctuation no longer yields "Non-base32 digit found"',
+    # v3.2.30
+    'Auth fix: a malformed ADMIN_TOTP_SECRETS env value (e.g. a secret pasted with the space-grouping shown on the setup screen) no longer 500s the authenticator login — all whitespace is stripped from parsed secrets, and verify_totp_code degrades to a clean "use the email-code option" error instead of throwing on invalid base32',
+    # v3.2.29
     'Auth fix: super-admins (kevin@) un-bricked — a stored authenticator secret that cannot be decrypted (e.g. after an ENCRYPTION_KEY/SECRET_KEY rotation) is now treated as no-2FA, so login falls back to an email code and re-enrollment instead of failing forever at the authenticator screen',
     'DB: generic auto-migration backfills model columns missing from existing tables (fixes tenant_users.totp_enabled/totp_secret_enc and documents.version/modified_* schema drift that 500-ed the admin panel)',
     'DB: added Flask-SQLAlchemy-style get_or_404/first_or_404 helpers to the plain-SQLAlchemy session — repairs all existing admin routes that relied on them',

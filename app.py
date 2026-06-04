@@ -2322,18 +2322,20 @@ def service_worker():
 @require_admin
 def test_email():
     import os as _os
-    from notify import send as _send
+    from notify import send as _send, _cfg as _ncfg, _gmail_access_token
     to = session.get('aios_email', 'roger@aievolutionservices.com')
     try:
         _send(to, 'AIOS Email Test', '<h2>It works!</h2><p>AIOS email delivery is working correctly.</p>')
         result = f'OK — test email sent to {to}'
     except Exception as e:
         result = f'ERROR: {e}'
+    gmail_ready = bool(_ncfg('GOOGLE_CLIENT_ID') and _ncfg('GOOGLE_CLIENT_SECRET') and _ncfg('GMAIL_REFRESH_TOKEN'))
     diag = {
-        'RESEND_API_KEY': 'set (' + (_os.getenv('RESEND_API_KEY','')[:8] + '…)') if _os.getenv('RESEND_API_KEY') else 'NOT SET',
-        'RESEND_FROM':    _os.getenv('RESEND_FROM', 'NOT SET'),
-        'SMTP_HOST':      _os.getenv('SMTP_HOST', 'NOT SET'),
-        'result':         result,
+        'Gmail API (primary)':  'configured' if gmail_ready else 'NOT configured (set GOOGLE_CLIENT_ID/SECRET + GMAIL_REFRESH_TOKEN)',
+        'Gmail token refresh':  'access token OK' if (gmail_ready and _gmail_access_token()) else ('refresh FAILED — re-auth at /admin/gmail-auth' if gmail_ready else 'n/a'),
+        'GMAIL_SENDER':         _ncfg('GMAIL_SENDER') or 'default (rogerramey4@gmail.com)',
+        'SMTP_HOST (fallback)': _os.getenv('SMTP_HOST', 'NOT SET'),
+        'result':               result,
     }
     rows = ''.join(f'<tr><td style="padding:8px 16px;color:#8b949e">{k}</td><td style="padding:8px 16px;color:#e3b341">{v}</td></tr>' for k,v in diag.items())
     return f'<html><body style="background:#0a0e14;color:#e6edf3;font-family:monospace;padding:32px"><h2 style="color:#e3b341">AIOS Email Diagnostics</h2><table style="border-collapse:collapse;background:#0d1117;border:1px solid #30363d;border-radius:8px">{rows}</table></body></html>'
