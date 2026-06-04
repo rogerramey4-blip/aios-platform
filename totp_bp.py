@@ -21,6 +21,7 @@ totp_bp = Blueprint('totp', __name__, url_prefix='/totp')
 
 ISSUER      = 'AIOS'
 TOTP_WINDOW = 1   # ±1 × 30 s window for clock drift
+_B32_ALPHABET = frozenset('ABCDEFGHIJKLMNOPQRSTUVWXYZ234567')  # RFC 4648 base32
 
 # Simple in-memory TOTP attempt tracker (mirrors OTP lockout in auth.py)
 _totp_fails: dict = {}
@@ -36,11 +37,12 @@ def _admin_totp_env_secrets() -> dict:
       ADMIN_TOTP_SECRET=secret + ADMIN_TOTP_EMAIL=email      (legacy, single-admin)
     Returns lowercase-email → base32-secret dict. Multi-admin entries win on conflict.
     """
-    # Secrets are base32; tolerate copy/paste artefacts (the setup screen shows the
-    # secret space-grouped as "ABCD EFGH ...", and log/console copies can introduce
-    # tabs or newlines). Strip ALL whitespace so a formatted paste can't produce an
-    # invalid-base32 secret that 500s the verify path.
-    _clean = lambda s: ''.join(s.split())
+    # Secrets are base32 (RFC 4648: A-Z, 2-7). Tolerate copy/paste artefacts —
+    # the setup screen shows the secret space-grouped ("ABCD EFGH ..."), and copies
+    # from the truncated log line can drag in an ellipsis or stray punctuation. Keep
+    # ONLY valid base32 chars (upper-cased) so a messy paste self-heals into a usable
+    # secret instead of raising "Non-base32 digit found" in the verify path.
+    _clean = lambda s: ''.join(c for c in s.upper() if c in _B32_ALPHABET)
     out: dict = {}
     legacy_secret = _clean(os.getenv('ADMIN_TOTP_SECRET', ''))
     legacy_email  = os.getenv('ADMIN_TOTP_EMAIL', 'roger@aievolutionservices.com').strip().lower()
