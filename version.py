@@ -2,7 +2,8 @@ VERSION    = 'v3.3.0'
 BUILD_DATE = '2026-06-03'
 
 CHANGES = [
-    'Client Builders: assign a revocable, single-client implementer (TenantUser role=builder) who can configure all per-tenant aspects of one client — integrations, documents, domains, staff users, settings — via UI and CLI, and never reach other clients or the super-admin panel',
+    'Agent builder: per-tenant agents a builder creates/edits/enables/disables for their client (TenantAgent, encrypted config) — managed in the workspace Agents page, via REST /api/v1/agents, and via `aios agents` CLI; the static AGENTS_DETAIL set now shows as a Template Library alongside them',
+    'Client Builders: assign a revocable, single-client implementer (TenantUser role=builder) who can configure all per-tenant aspects of one client — agents, integrations, documents, domains, staff users, settings — via UI and CLI, and never reach other clients or the super-admin panel',
     'Scoped API tokens: super-admins issue per-builder Bearer tokens (Admin → client → Builders & Access) — SHA-256 hashed at rest, shown once, scoped, 90-day default expiry, last-used tracked, instantly revocable',
     'REST API /api/v1: token-authenticated, hard-scoped to the token tenant — whoami, integrations, documents, domains, users, settings (api_bp.py)',
     'aios CLI: zero-dependency command-line client for builders (cli/aios.py) — login, integrations, docs, domains, users, settings',

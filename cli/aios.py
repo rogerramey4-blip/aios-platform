@@ -205,6 +205,29 @@ def cmd_users(args):
                              'role': args.role}))
 
 
+def cmd_agents(args):
+    if args.action == 'list':
+        _out(*_request('GET', '/api/v1/agents'))
+    elif args.action == 'get':
+        _out(*_request('GET', f'/api/v1/agents/{args.id}'))
+    elif args.action in ('create', 'update'):
+        body = _kv(args.field)
+        cfg = _kv(args.config)
+        if cfg:
+            body['config'] = cfg
+        if args.action == 'create':
+            if 'name' not in body:
+                _die('create requires --field name=...')
+            _out(*_request('POST', '/api/v1/agents', body=body))
+        else:
+            _out(*_request('PATCH', f'/api/v1/agents/{args.id}', body=body))
+    elif args.action in ('enable', 'disable'):
+        status = 'active' if args.action == 'enable' else 'paused'
+        _out(*_request('PATCH', f'/api/v1/agents/{args.id}', body={'status': status}))
+    elif args.action == 'delete':
+        _out(*_request('DELETE', f'/api/v1/agents/{args.id}'))
+
+
 def cmd_settings(args):
     if args.action == 'get':
         _out(*_request('GET', '/api/v1/settings'))
@@ -252,6 +275,20 @@ def build_parser():
     ua = usub.add_parser('add'); ua.add_argument('email')
     ua.add_argument('--name'); ua.add_argument('--role', default='member', choices=['member', 'admin'])
     up.set_defaults(func=cmd_users)
+
+    ap = sub.add_parser('agents', help='build & manage per-client agents')
+    asub = ap.add_subparsers(dest='action', required=True)
+    asub.add_parser('list')
+    ag = asub.add_parser('get'); ag.add_argument('id')
+    ac = asub.add_parser('create')
+    ac.add_argument('--field', action='append', help='top-level key=value (name, agent_type, status, description)')
+    ac.add_argument('--config', action='append', help='config key=value (instructions, schedule, model)')
+    auu = asub.add_parser('update'); auu.add_argument('id')
+    auu.add_argument('--field', action='append'); auu.add_argument('--config', action='append')
+    ae = asub.add_parser('enable'); ae.add_argument('id')
+    ad = asub.add_parser('disable'); ad.add_argument('id')
+    adel = asub.add_parser('delete'); adel.add_argument('id')
+    ap.set_defaults(func=cmd_agents)
 
     sp = sub.add_parser('settings', help='tenant settings')
     ssub = sp.add_subparsers(dest='action', required=True)

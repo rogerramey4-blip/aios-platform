@@ -63,7 +63,10 @@ API_SCOPES = [
     'domains:read',      'domains:write',
     'users:read',        'users:write',
     'settings:read',     'settings:write',
+    'agents:read',       'agents:write',
 ]
+
+AGENT_STATUSES = ['active', 'idle', 'paused', 'draft']
 
 
 class Tenant(Base):
@@ -349,6 +352,64 @@ class ApiToken(Base):
             'revoked':      bool(self.revoked),
             'valid':        self.is_valid(),
         }
+
+
+class TenantAgent(Base):
+    """
+    A per-tenant agent definition built/configured by a Client Builder.
+
+    Demo agents shipped in app.py (AGENTS_DETAIL) are static templates; this table
+    holds the real, editable agents a builder creates for their assigned client.
+    Display fields (name/type/status/description) are plain columns so listing
+    needs no decryption; the richer config (instructions/prompt, schedule, model,
+    integrations, triggers) is stored as a per-tenant Fernet-encrypted JSON blob,
+    consistent with documents and integration credentials.
+    """
+    __tablename__ = 'tenant_agents'
+    __table_args__ = (UniqueConstraint('tenant_id', 'key', name='uq_tenant_agent_key'),)
+
+    id          = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    tenant_id   = Column(String(36), ForeignKey('tenants.id'), nullable=False)
+    key         = Column(String(80),  nullable=False)     # slug, unique within tenant
+    name        = Column(String(200), nullable=False)
+    agent_type  = Column(String(60),  default='Custom')   # Monitor/Generator/Composer/…
+    status      = Column(String(20),  default='draft')    # active|idle|paused|draft
+    description = Column(Text,         default='')
+    config_enc  = Column(Text,         default='')         # Fernet JSON: instructions, schedule, model, integrations, triggers
+    created_by  = Column(String(200), default='')
+    created_at  = Column(DateTime,    default=datetime.utcnow)
+    updated_at  = Column(DateTime,    default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def set_config(self, cfg: dict):
+        from encryption import encrypt_str
+        import json as _json
+        self.config_enc = encrypt_str(self.tenant_id, _json.dumps(cfg or {}))
+
+    def get_config(self) -> dict:
+        if not self.config_enc:
+            return {}
+        from encryption import decrypt_str
+        import json as _json
+        try:
+            return _json.loads(decrypt_str(self.tenant_id, self.config_enc) or '{}')
+        except Exception:
+            return {}
+
+    def to_dict(self, include_config: bool = False) -> dict:
+        d = {
+            'id':          self.id,
+            'key':         self.key,
+            'name':        self.name,
+            'agent_type':  self.agent_type,
+            'status':      self.status,
+            'description': self.description,
+            'created_by':  self.created_by,
+            'created_at':  self.created_at.isoformat() if self.created_at else None,
+            'updated_at':  self.updated_at.isoformat() if self.updated_at else None,
+        }
+        if include_config:
+            d['config'] = self.get_config()
+        return d
 
 
 def _col_ddl(col) -> str:

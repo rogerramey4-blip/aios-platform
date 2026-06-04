@@ -255,6 +255,57 @@ def users_toggle(user_id):
     return jsonify({'ok': True, 'active': bool(user.active)})
 
 
+# ── Agents (per-tenant agent definitions) ─────────────────────────────────────
+@api_bp.route('/agents')
+@require_scope('agents:read')
+def agents_list():
+    from agents_service import list_agents
+    rows, err = list_agents(_tid())
+    return jsonify({'ok': True, 'agents': rows}) if not err else _err(err)
+
+
+@api_bp.route('/agents/<agent_id>')
+@require_scope('agents:read')
+def agents_get(agent_id):
+    from agents_service import get_agent
+    row, err = get_agent(_tid(), agent_id)
+    return jsonify({'ok': True, 'agent': row}) if not err else _err(err, 404)
+
+
+@api_bp.route('/agents', methods=['POST'])
+@require_scope('agents:write')
+def agents_create():
+    from agents_service import create_agent
+    row, err = create_agent(_tid(), request.get_json(silent=True) or {},
+                            created_by=g.api_principal['email'])
+    if err:
+        return _err(err)
+    _audit('agent_created', f'agent:{row["key"]}', 'success', f'name={row["name"]}')
+    return jsonify({'ok': True, 'agent': row})
+
+
+@api_bp.route('/agents/<agent_id>', methods=['PATCH', 'POST'])
+@require_scope('agents:write')
+def agents_update(agent_id):
+    from agents_service import update_agent
+    row, err = update_agent(_tid(), agent_id, request.get_json(silent=True) or {})
+    if err:
+        return _err(err, 404 if err == 'Agent not found' else 400)
+    _audit('agent_updated', f'agent:{row["key"]}', 'success', f'status={row["status"]}')
+    return jsonify({'ok': True, 'agent': row})
+
+
+@api_bp.route('/agents/<agent_id>', methods=['DELETE'])
+@require_scope('agents:write')
+def agents_delete(agent_id):
+    from agents_service import delete_agent
+    row, err = delete_agent(_tid(), agent_id)
+    if err:
+        return _err(err, 404)
+    _audit('agent_deleted', f'agent:{agent_id}', 'success', f'name={row["name"]}')
+    return jsonify({'ok': True, 'deleted': agent_id})
+
+
 # ── Tenant settings (safe subset — not plan/status, which are commercial) ──────
 _SETTINGS_FIELDS = ('firm_name', 'firm_sub', 'contact_name',
                     'contact_email', 'contact_phone', 'notes')

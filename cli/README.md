@@ -8,6 +8,7 @@ AIOS over the REST API. Standard library only — no `pip install` required.
 A builder is an implementer assigned to **one** client. Their token is bound to
 that client server-side, so every command only ever touches that client's AIOS:
 
+- Build and configure per-client **agents** (create/edit/enable/disable/delete)
 - Connect / test / disconnect platform **integrations**
 - Upload and list **documents**
 - Add and verify custom **domains**
@@ -63,6 +64,17 @@ aios domains verify <domain_id>
 # Client staff users (never builders/super-admins)
 aios users list
 aios users add jane@theclient.com --name "Jane Doe" --role member
+
+# Agents (build & configure per-client agents)
+aios agents list
+aios agents create --field name="Overdue Invoice Chaser" --field agent_type=Composer \
+                   --field status=draft --config instructions="Chase invoices >30d overdue" \
+                   --config schedule="daily 8am" --config model=claude-opus-4-8
+aios agents get <agent_id>
+aios agents update <agent_id> --field description="Now also escalates at 60d"
+aios agents enable <agent_id>
+aios agents disable <agent_id>
+aios agents delete <agent_id>
 
 # Settings
 aios settings get
