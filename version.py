@@ -1,7 +1,11 @@
-VERSION    = 'v3.2.30'
+VERSION    = 'v3.2.31'
 BUILD_DATE = '2026-06-04'
 
 CHANGES = [
+    'Email: OTP / 2FA emails now actually send via the Gmail API over HTTPS (notify.py) — the OAuth flow at /admin/gmail-auth stored a GMAIL_REFRESH_TOKEN but nothing ever used it; delivery order is now Gmail API → SMTP → console/log. Fixes "email token not received" on Railway where outbound SMTP is blocked',
+    'Email: /admin/test-email diagnostics now report Gmail API config + live token-refresh status instead of only SMTP/Resend',
+    'Auth fix: ADMIN_TOTP_SECRETS secrets self-heal — parser keeps only valid base32 chars (A-Z, 2-7), so a secret pasted with spaces, an ellipsis from the truncated log line, or other punctuation no longer yields "Non-base32 digit found"',
+    # v3.2.30
     'Auth fix: a malformed ADMIN_TOTP_SECRETS env value (e.g. a secret pasted with the space-grouping shown on the setup screen) no longer 500s the authenticator login — all whitespace is stripped from parsed secrets, and verify_totp_code degrades to a clean "use the email-code option" error instead of throwing on invalid base32',
     # v3.2.29
     'Auth fix: super-admins (kevin@) un-bricked — a stored authenticator secret that cannot be decrypted (e.g. after an ENCRYPTION_KEY/SECRET_KEY rotation) is now treated as no-2FA, so login falls back to an email code and re-enrollment instead of failing forever at the authenticator screen',
