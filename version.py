@@ -1,7 +1,9 @@
-VERSION    = 'v3.2.29'
-BUILD_DATE = '2026-06-03'
+VERSION    = 'v3.2.30'
+BUILD_DATE = '2026-06-04'
 
 CHANGES = [
+    'Auth fix: a malformed ADMIN_TOTP_SECRETS env value (e.g. a secret pasted with the space-grouping shown on the setup screen) no longer 500s the authenticator login — all whitespace is stripped from parsed secrets, and verify_totp_code degrades to a clean "use the email-code option" error instead of throwing on invalid base32',
+    # v3.2.29
     'Auth fix: super-admins (kevin@) un-bricked — a stored authenticator secret that cannot be decrypted (e.g. after an ENCRYPTION_KEY/SECRET_KEY rotation) is now treated as no-2FA, so login falls back to an email code and re-enrollment instead of failing forever at the authenticator screen',
     'DB: generic auto-migration backfills model columns missing from existing tables (fixes tenant_users.totp_enabled/totp_secret_enc and documents.version/modified_* schema drift that 500-ed the admin panel)',
     'DB: added Flask-SQLAlchemy-style get_or_404/first_or_404 helpers to the plain-SQLAlchemy session — repairs all existing admin routes that relied on them',
