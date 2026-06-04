@@ -7,5 +7,6 @@ __pycache__/
 
 # Secrets — never commit OAuth client secrets or local CLI tokens
 *client_secret*.json
+get_gmail_token.py
 .aios/
 aios-cli-config
