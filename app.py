@@ -10,7 +10,7 @@ except ImportError:
 
 from auth import (request_otp, verify_otp, check_authorized,
                   require_auth, require_admin, mask_email, ALLOWED_EMAILS,
-                  industry_scope_violation)
+                  industry_scope_violation, login_bypass_enabled)
 from models import init_db, Tenant, TenantUser, Document, Domain, TenantIntegration, db
 from security import init_security, audit
 from onboarding import onboard_bp
@@ -1781,7 +1781,7 @@ def _complete_login(email: str, method: str = 'email_otp'):
         session['aios_email']    = email
         session['aios_login_ts'] = now
         audit('login', f'/{method}', 'success', f'admin={email} method={method}')
-        if method != 'totp' and not totp_enabled(email):
+        if method not in ('totp', 'bypass') and not totp_enabled(email):
             return redirect(url_for('totp.setup_get'))
         return redirect(url_for('index'))
     user = TenantUser.query.filter_by(email=email, active=True).first()
@@ -1797,7 +1797,7 @@ def _complete_login(email: str, method: str = 'email_otp'):
         audit('login', f'/{method}', 'success', f'tenant_user={email} method={method}')
         # Builders are privileged implementers — force authenticator enrollment
         # on first sign-in, exactly like super-admins.
-        if user.role == 'builder' and method != 'totp' and not totp_enabled(email):
+        if user.role == 'builder' and method not in ('totp', 'bypass') and not totp_enabled(email):
             return redirect(url_for('totp.setup_get'))
         return redirect(url_for('dashboard', industry=user.tenant.industry))
     return redirect(url_for('login'))
@@ -1814,6 +1814,9 @@ def login():
         ok, msg = check_authorized(email)
         if not ok:
             error = msg
+        elif login_bypass_enabled(email):
+            # Verification disabled for this user — log straight in.
+            return _complete_login(email, 'bypass')
         elif totp_enabled(email):
             session['aios_pending_email'] = email
             return redirect(url_for('totp_verify'))

@@ -6,7 +6,7 @@
 <div class="page-header">
   <div>
     <div class="page-title">◈ Users &amp; Access</div>
-    <div class="page-sub">Administer every account — reset 2FA, enable/disable accounts, send login codes</div>
+    <div class="page-sub">Administer every account — reset 2FA, enable/disable accounts, send login codes, toggle login bypass</div>
   </div>
 </div>
 
@@ -23,6 +23,7 @@
         <th style="padding:8px 6px;">Email</th>
         <th style="padding:8px 6px;">2FA</th>
         <th style="padding:8px 6px;">Secret source</th>
+        <th style="padding:8px 6px;">Login bypass</th>
         <th style="padding:8px 6px;text-align:right;">Actions</th>
       </tr>
     </thead>
@@ -38,6 +39,13 @@
           {% if a.in_env %}env var{% if a.has_db_secret %} + db{% endif %}
           {% elif a.has_db_secret %}database
           {% else %}—{% endif %}
+        </td>
+        <td style="padding:10px 6px;">
+          <button class="btn-sm bypass-btn" data-email="{{ a.email }}"
+                  style="background:{% if a.login_bypass %}rgba(209,36,47,0.18){% else %}var(--bg-input){% endif %};color:{% if a.login_bypass %}var(--red){% else %}var(--text-muted){% endif %};"
+                  onclick="toggleBypass('{{ a.email }}', {{ 'false' if a.login_bypass else 'true' }})">
+            {% if a.login_bypass %}● Bypass ON{% else %}○ Off{% endif %}
+          </button>
         </td>
         <td style="padding:10px 6px;text-align:right;white-space:nowrap;">
           <button class="btn-sm" onclick="sendLogin('{{ a.email }}')">Send login code</button>
@@ -61,6 +69,7 @@
         <th style="padding:8px 6px;">Role</th>
         <th style="padding:8px 6px;">Status</th>
         <th style="padding:8px 6px;">2FA</th>
+        <th style="padding:8px 6px;">Login bypass</th>
         <th style="padding:8px 6px;text-align:right;">Actions</th>
       </tr>
     </thead>
@@ -91,6 +100,13 @@
           {% if u.has_2fa %}<span style="color:var(--green);">● On</span>
           {% else %}<span style="color:var(--text-muted);">○ Off</span>{% endif %}
         </td>
+        <td style="padding:10px 6px;">
+          <button class="btn-sm bypass-btn" data-email="{{ u.email }}"
+                  style="background:{% if u.login_bypass %}rgba(209,36,47,0.18){% else %}var(--bg-input){% endif %};color:{% if u.login_bypass %}var(--red){% else %}var(--text-muted){% endif %};"
+                  onclick="toggleBypass('{{ u.email }}', {{ 'false' if u.login_bypass else 'true' }})">
+            {% if u.login_bypass %}● Bypass ON{% else %}○ Off{% endif %}
+          </button>
+        </td>
         <td style="padding:10px 6px;text-align:right;white-space:nowrap;">
           <button class="btn-sm" onclick="sendLogin('{{ u.email }}')">Send login code</button>
           <button class="btn-sm" style="background:rgba(227,179,65,0.15);color:var(--gold);"
@@ -101,7 +117,7 @@
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="6" style="padding:18px 6px;color:var(--text-muted);">No client users yet.</td></tr>
+      <tr><td colspan="7" style="padding:18px 6px;color:var(--text-muted);">No client users yet.</td></tr>
       {% endfor %}
     </tbody>
   </table>
@@ -168,6 +184,20 @@ async function toggleActive(id){
 async function setRole(id, role){
   const {ok}=await post('/admin/user/'+id+'/role','role='+encodeURIComponent(role));
   toast(ok?'Role updated to '+role:'Role change failed', ok);
+}
+
+async function toggleBypass(email, on){
+  const warn = on
+    ? '⚠ Disable ALL login verification for '+email+'?\n\nAnyone who knows this email can then sign in with NO code and NO authenticator. Use only for trusted accounts.'
+    : 'Re-enable login verification for '+email+'?';
+  if(!confirm(warn)) return;
+  const {ok,data}=await post('/admin/login-bypass',
+    'email='+encodeURIComponent(email)+'&enabled='+(on?'1':'0'));
+  if(!ok){ toast('Update failed', false); return; }
+  toast(data.login_bypass
+    ? 'Login bypass ENABLED — '+email+' now signs in with email only'
+    : 'Login verification restored for '+email, !data.login_bypass);
+  setTimeout(()=>location.reload(), 1000);
 }
 </script>
 {% endblock %}
