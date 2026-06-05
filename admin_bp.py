@@ -15,7 +15,8 @@ from datetime import timedelta
 from models import (Tenant, TenantUser, Document, Domain, AuditLog, AdminTOTP,
                     ApiToken, API_SCOPES, db)
 from auth import (require_admin, request_otp, ALLOWED_EMAILS,
-                  generate_token, TOKEN_TTL_DAYS)
+                  generate_token, TOKEN_TTL_DAYS,
+                  login_bypass_enabled, set_login_bypass)
 from security import validate_domain, validate_email, audit
 
 log = logging.getLogger(__name__)
@@ -441,6 +442,7 @@ def users():
             'in_env':       email in env_admins,
             'has_db_secret': bool(rec and rec.totp_secret_enc),
             'is_self':      email == session.get('aios_email', ''),
+            'login_bypass': login_bypass_enabled(email),
         })
 
     tenants = {t.id: t for t in Tenant.query.all()}
@@ -458,6 +460,7 @@ def users():
             'firm_name':  t.firm_name if t else '—',
             'tenant_id':  u.tenant_id,
             'industry':   t.industry if t else '',
+            'login_bypass': login_bypass_enabled(u.email),
         })
 
     return render_template('admin/users.html',
@@ -490,6 +493,29 @@ def user_toggle_active(user_id):
     audit('user_active_toggled', f'user:{user.email}', 'success',
           f'active={user.active} by={session.get("aios_email", "")}')
     return jsonify({'ok': True, 'active': bool(user.active)})
+
+
+@admin_bp.route('/login-bypass', methods=['POST'])
+@require_admin
+def toggle_login_bypass():
+    """
+    Enable/disable login-verification bypass for ANY account (super-admin or tenant
+    user), keyed by email. When on, that user logs in by entering their email only —
+    no email OTP, no authenticator. Super-admin only; every change is audit-logged.
+    """
+    data    = request.get_json(silent=True) or request.form
+    email   = (data.get('email') or '').strip().lower()
+    enabled = str(data.get('enabled')).lower() in ('1', 'true', 'on', 'yes')
+    if not email:
+        return jsonify({'ok': False, 'error': 'email required'}), 400
+    # Only act on real accounts (super-admin or an existing tenant user).
+    if email not in ALLOWED_EMAILS and not TenantUser.query.filter_by(email=email).first():
+        return jsonify({'ok': False, 'error': 'unknown account'}), 404
+    state = set_login_bypass(email, enabled)
+    audit('login_bypass_toggled', f'account:{email}',
+          'warning' if state else 'success',
+          f'bypass={state} by={session.get("aios_email", "")}')
+    return jsonify({'ok': True, 'email': email, 'login_bypass': bool(state)})
 
 
 @admin_bp.route('/user/<user_id>/role', methods=['POST'])

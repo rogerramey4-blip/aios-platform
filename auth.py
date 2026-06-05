@@ -52,6 +52,43 @@ def check_authorized(email: str) -> tuple:
     return True, ''
 
 
+# ── Per-user login bypass (super-admin controlled) ────────────────────────────
+# An email listed here skips ALL login verification — no email OTP, no
+# authenticator: entering the email logs the user straight in. Applies to
+# super-admins and tenant users alike. Stored as a CSV in SystemConfig (encrypted,
+# survives redeploys, no schema change) with an env-var fallback (LOGIN_BYPASS_EMAILS)
+# for a redeploy-proof exemption. The email must still be authorized + active —
+# bypass only removes the verification step, never the authorization check.
+_LOGIN_BYPASS_KEY = 'LOGIN_BYPASS_EMAILS'
+
+
+def _bypass_set() -> set:
+    try:
+        from models import get_config
+        raw = get_config(_LOGIN_BYPASS_KEY, '')
+    except Exception:
+        raw = os.getenv(_LOGIN_BYPASS_KEY, '')
+    return {e.strip().lower() for e in (raw or '').split(',') if e.strip()}
+
+
+def login_bypass_enabled(email: str) -> bool:
+    """True if this email is exempt from all login verification."""
+    return (email or '').strip().lower() in _bypass_set()
+
+
+def set_login_bypass(email: str, on: bool) -> bool:
+    """Add/remove an email from the login-bypass set. Returns the new state."""
+    email = (email or '').strip().lower()
+    if not email:
+        return False
+    s = _bypass_set()
+    s.add(email) if on else s.discard(email)
+    from models import set_config
+    set_config(_LOGIN_BYPASS_KEY, ','.join(sorted(s)))
+    log.warning('[AIOS Auth] login bypass %s for %s', 'ENABLED' if on else 'disabled', email)
+    return on
+
+
 def _rate_limited(email: str) -> bool:
     now = time.time()
     window = [t for t in _rate_store.get(email, []) if now - t < REQUEST_WINDOW]

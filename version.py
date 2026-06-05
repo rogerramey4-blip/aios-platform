@@ -1,7 +1,9 @@
-VERSION    = 'v3.3.0'
-BUILD_DATE = '2026-06-04'
+VERSION    = 'v3.3.1'
+BUILD_DATE = '2026-06-05'
 
 CHANGES = [
+    'Admin: per-account login-bypass toggle in Users & Access — a super-admin can disable ALL login verification for any account (super-admin or tenant user); a bypassed user signs in by entering their email only (no email OTP, no authenticator). Stored encrypted in SystemConfig with a LOGIN_BYPASS_EMAILS env-var fallback (redeploy-proof), audit-logged on every change, and never weakens the authorization/active check',
+    # v3.3.0
     'Agent builder: per-tenant agents a builder creates/edits/enables/disables for their client (TenantAgent, encrypted config) — managed in the workspace Agents page, via REST /api/v1/agents, and via `aios agents` CLI; the static AGENTS_DETAIL set now shows as a Template Library alongside them',
     'Client Builders: assign a revocable, single-client implementer (TenantUser role=builder) who can configure all per-tenant aspects of one client — agents, integrations, documents, domains, staff users, settings — via UI and CLI, and never reach other clients or the super-admin panel',
     'Scoped API tokens: super-admins issue per-builder Bearer tokens (Admin → client → Builders & Access) — SHA-256 hashed at rest, shown once, scoped, 90-day default expiry, last-used tracked, instantly revocable',
