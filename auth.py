@@ -6,11 +6,13 @@ Tenant users: any active email in TenantUser table
 
 import os
 import time
+import hashlib
 import secrets
 import logging
+from datetime import datetime, timedelta
 import pyotp
 from functools import wraps
-from flask import session, redirect, url_for, request
+from flask import session, redirect, url_for, request, g, jsonify, abort
 
 log = logging.getLogger(__name__)
 
@@ -180,15 +182,155 @@ def require_admin(f):
 
 
 def current_tenant_id() -> str | None:
+    p = getattr(g, 'api_principal', None)
+    if p:
+        return p['tenant_id']
     return session.get('tenant_id')
 
 
 def current_email() -> str:
+    p = getattr(g, 'api_principal', None)
+    if p:
+        return p['email']
     return session.get('aios_email') or session.get('tenant_email', '')
 
 
 def is_super_admin() -> bool:
     return bool(session.get('aios_auth'))
+
+
+# ── Scoped API tokens (CLI / REST) ────────────────────────────────────────────
+TOKEN_PREFIX  = 'aios_pat_'
+TOKEN_BYTES   = 32          # 256-bit secret
+TOKEN_TTL_DAYS = 90         # default expiry when issued
+
+
+def hash_token(secret: str) -> str:
+    """SHA-256 hex of the full token secret — only this is ever stored."""
+    return hashlib.sha256(secret.encode()).hexdigest()
+
+
+def generate_token() -> tuple:
+    """
+    Mint a new token. Returns (full_secret, token_hash, token_prefix).
+    full_secret is shown to the operator exactly once and never persisted.
+    """
+    body   = secrets.token_urlsafe(TOKEN_BYTES)
+    secret = TOKEN_PREFIX + body
+    return secret, hash_token(secret), secret[:len(TOKEN_PREFIX) + 6]
+
+
+def authenticate_api_token():
+    """
+    Resolve `Authorization: Bearer aios_pat_…` into g.api_principal.
+    Returns the principal dict on success, else None. Side-effect free except
+    for updating last_used metadata on a valid token.
+    """
+    hdr = request.headers.get('Authorization', '')
+    if not hdr.startswith('Bearer '):
+        return None
+    secret = hdr[len('Bearer '):].strip()
+    if not secret.startswith(TOKEN_PREFIX):
+        return None
+    try:
+        from models import ApiToken, TenantUser, db
+        rec = ApiToken.query.filter_by(token_hash=hash_token(secret)).first()
+        if not rec or not rec.is_valid():
+            return None
+        user = TenantUser.query.filter_by(id=rec.user_id, active=True).first()
+        if not user:                       # deactivating the user kills every token
+            return None
+        rec.last_used_at = datetime.utcnow()
+        rec.last_used_ip = (request.remote_addr or '')[:50]
+        db.commit()
+        g.api_principal = {
+            'tenant_id': rec.tenant_id,
+            'user_id':   user.id,
+            'email':     user.email,
+            'role':      user.role,
+            'scopes':    {s for s in (rec.scopes or '').split(',') if s},
+            'token_id':  rec.id,
+        }
+        return g.api_principal
+    except Exception as exc:
+        log.warning('[AIOS Auth] token auth error: %s', exc)
+        return None
+
+
+def _api_error(msg: str, code: int):
+    resp = jsonify({'ok': False, 'error': msg})
+    resp.status_code = code
+    if code == 401:
+        resp.headers['WWW-Authenticate'] = 'Bearer realm="AIOS API"'
+    return resp
+
+
+def require_token(f):
+    """API gate: a valid Bearer token is mandatory. Sets g.api_principal."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not getattr(g, 'api_principal', None):
+            if not authenticate_api_token():
+                return _api_error('Missing or invalid API token.', 401)
+        return f(*args, **kwargs)
+    return decorated
+
+
+def require_scope(scope: str):
+    """API gate: the presenting token must carry `scope`."""
+    def wrapper(f):
+        @wraps(f)
+        def decorated(*args, **kwargs):
+            p = getattr(g, 'api_principal', None) or authenticate_api_token()
+            if not p:
+                return _api_error('Missing or invalid API token.', 401)
+            if scope not in p['scopes']:
+                return _api_error(f'Token lacks required scope: {scope}', 403)
+            return f(*args, **kwargs)
+        return decorated
+    return wrapper
+
+
+def require_builder(f):
+    """
+    UI gate: an authenticated builder (or super-admin) for the current tenant.
+    Super-admins always pass; tenant users pass only if role == 'builder'.
+    """
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        now = time.time()
+        if (session.get('aios_auth') and
+                now - session.get('aios_login_ts', 0) <= SESSION_TTL):
+            return f(*args, **kwargs)
+        if (session.get('tenant_auth') and
+                now - session.get('tenant_login_ts', 0) <= SESSION_TTL and
+                session.get('tenant_role') == 'builder'):
+            return f(*args, **kwargs)
+        if session.get('tenant_auth'):
+            abort(403)
+        session.clear()
+        return redirect(url_for('login'))
+    return decorated
+
+
+def industry_scope_violation(url_industry: str) -> str | None:
+    """
+    Tenant-scope check for /<industry>/* routes. Returns the user's OWN industry
+    when they are reaching for an industry that isn't theirs (caller should then
+    redirect there), or None when access is permitted.
+
+    Super-admins (no fixed industry) and unauthenticated requests are permitted
+    here — require_auth handles the unauthenticated case downstream. This is the
+    single source of truth used by app.py's before_request guard.
+    """
+    if session.get('aios_auth'):
+        return None                               # super-admin: all industries
+    own = session.get('tenant_industry')
+    if url_industry and own and url_industry != own:
+        log.warning('[AIOS Auth] tenant scope block: %s tried /%s',
+                    session.get('tenant_email', '?'), url_industry)
+        return own
+    return None
 
 
 def _deliver(to: str, code: str):

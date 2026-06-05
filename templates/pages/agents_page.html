@@ -2,9 +2,51 @@
 {% block main %}
 <div class="page-header">
   <div class="page-breadcrumb"><a href="/{{ data.industry }}">Dashboard</a><span class="breadcrumb-sep">›</span><span>Agent Overview</span></div>
-  <div class="page-title-row"><div class="page-title">🤖 AI Agent Overview</div><div class="page-subtitle">{{ agents_detail|selectattr('status','equalto','active')|list|length }} active · {{ agents_detail|selectattr('status','equalto','idle')|list|length }} idle</div></div>
+  <div class="page-title-row"><div class="page-title">🤖 AI Agent Overview</div><div class="page-subtitle">{{ tenant_agents|length }} custom · {{ agents_detail|selectattr('status','equalto','active')|list|length }} template active</div></div>
 </div>
 
+<!-- Custom (per-tenant) agents built for this client -->
+<div style="display:flex;align-items:center;justify-content:space-between;margin:8px 0 14px;">
+  <div style="font-size:15px;font-weight:700;color:var(--text-primary);">Custom Agents <span style="color:var(--text-muted);font-weight:400;">({{ tenant_agents|length }})</span></div>
+  {% if can_build_agents %}
+  <button class="btn-sm" onclick="openAgentModal()">+ New Agent</button>
+  {% endif %}
+</div>
+
+{% if tenant_agents %}
+<div class="agents-grid" style="margin-bottom:28px;">
+  {% for a in tenant_agents %}
+  <div class="agent-card">
+    <div class="agent-card-hdr">
+      <div>
+        <div class="agent-card-name">{{ a.name }}</div>
+        <div class="agent-card-type">{{ a.agent_type }}</div>
+      </div>
+      <div class="agent-card-status {{ 'active' if a.status == 'active' else 'idle' }}">
+        {% if a.status == 'active' %}● Active{% elif a.status == 'paused' %}❚❚ Paused{% elif a.status == 'draft' %}✎ Draft{% else %}○ Idle{% endif %}
+      </div>
+    </div>
+    <div class="agent-card-desc">{{ a.description or 'No description.' }}</div>
+    {% if can_build_agents %}
+    <div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap;">
+      <button class="btn-sm" onclick='openAgentModal({{ a|tojson }})'>Edit</button>
+      <button class="btn-sm" onclick="toggleAgent('{{ a.id }}','{{ a.status }}')">
+        {{ 'Pause' if a.status == 'active' else 'Activate' }}
+      </button>
+      <button class="btn-sm" style="color:var(--red);background:rgba(209,36,47,0.1);" onclick="deleteAgent('{{ a.id }}', {{ a.name|tojson }})">Delete</button>
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% elif can_build_agents %}
+<div style="padding:18px;border:1px dashed var(--border);border-radius:10px;color:var(--text-muted);font-size:13px;margin-bottom:28px;">
+  No custom agents yet. Click <strong>+ New Agent</strong> to build one — or use the CLI:
+  <code>aios agents create --field name="My Agent"</code>.
+</div>
+{% endif %}
+
+<div style="font-size:15px;font-weight:700;color:var(--text-primary);margin:8px 0 14px;">Template Library</div>
 <div class="agents-grid">
   {% for ag in agents_detail %}
   <div class="agent-card">
@@ -39,4 +81,123 @@
   </div>
   {% endfor %}
 </div>
+
+{% if can_build_agents %}
+<!-- Agent builder modal -->
+<div id="agentModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9998;align-items:center;justify-content:center;">
+  <div style="background:var(--bg-card,#0d1117);border:1px solid var(--border);border-radius:12px;padding:24px;width:520px;max-width:94vw;max-height:90vh;overflow:auto;">
+    <div id="agentModalTitle" style="font-size:15px;font-weight:700;margin-bottom:16px;">New Agent</div>
+    <input type="hidden" id="agentId">
+
+    <label style="font-size:11px;color:var(--text-muted);">Name</label>
+    <input id="agName" type="text" placeholder="e.g. Overdue Invoice Chaser" style="width:100%;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text-primary);font-size:13px;margin:4px 0 12px;">
+
+    <div style="display:flex;gap:10px;">
+      <div style="flex:1;">
+        <label style="font-size:11px;color:var(--text-muted);">Type</label>
+        <input id="agType" type="text" placeholder="Monitor / Composer / …" style="width:100%;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text-primary);font-size:13px;margin:4px 0 12px;">
+      </div>
+      <div style="flex:1;">
+        <label style="font-size:11px;color:var(--text-muted);">Status</label>
+        <select id="agStatus" style="width:100%;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text-primary);font-size:13px;margin:4px 0 12px;">
+          {% for s in agent_statuses %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <label style="font-size:11px;color:var(--text-muted);">Description</label>
+    <input id="agDesc" type="text" placeholder="What this agent does" style="width:100%;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text-primary);font-size:13px;margin:4px 0 12px;">
+
+    <div style="display:flex;gap:10px;">
+      <div style="flex:1;">
+        <label style="font-size:11px;color:var(--text-muted);">Schedule</label>
+        <input id="agSchedule" type="text" placeholder="e.g. daily 8am" style="width:100%;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text-primary);font-size:13px;margin:4px 0 12px;">
+      </div>
+      <div style="flex:1;">
+        <label style="font-size:11px;color:var(--text-muted);">Model</label>
+        <input id="agModel" type="text" placeholder="claude-opus-4-8" style="width:100%;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text-primary);font-size:13px;margin:4px 0 12px;">
+      </div>
+    </div>
+
+    <label style="font-size:11px;color:var(--text-muted);">Instructions / prompt</label>
+    <textarea id="agInstructions" style="width:100%;height:120px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:10px;color:var(--text-primary);font-size:13px;margin:4px 0 14px;resize:vertical;" placeholder="System instructions for this agent…"></textarea>
+
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn-sm" style="background:var(--bg-input);" onclick="closeAgentModal()">Cancel</button>
+      <button class="btn-sm" onclick="saveAgent()">Save Agent</button>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if can_build_agents %}
+<script>
+const AG_INDUSTRY = '{{ data.industry }}';
+const AG_CSRF = document.querySelector('meta[name="csrf-token"]').content;
+
+function openAgentModal(a) {
+  document.getElementById('agentModalTitle').textContent = a ? 'Edit Agent' : 'New Agent';
+  document.getElementById('agentId').value   = a ? a.id : '';
+  document.getElementById('agName').value     = a ? a.name : '';
+  document.getElementById('agType').value     = a ? (a.agent_type || '') : '';
+  document.getElementById('agStatus').value   = a ? a.status : 'draft';
+  document.getElementById('agDesc').value     = a ? (a.description || '') : '';
+  const cfg = (a && a.config) ? a.config : {};
+  document.getElementById('agSchedule').value     = cfg.schedule || '';
+  document.getElementById('agModel').value        = cfg.model || '';
+  document.getElementById('agInstructions').value = cfg.instructions || '';
+  document.getElementById('agentModal').style.display = 'flex';
+}
+function closeAgentModal(){ document.getElementById('agentModal').style.display = 'none'; }
+
+function _agentBody() {
+  return {
+    name: document.getElementById('agName').value.trim(),
+    agent_type: document.getElementById('agType').value.trim() || 'Custom',
+    status: document.getElementById('agStatus').value,
+    description: document.getElementById('agDesc').value.trim(),
+    config: {
+      schedule: document.getElementById('agSchedule').value.trim(),
+      model: document.getElementById('agModel').value.trim(),
+      instructions: document.getElementById('agInstructions').value.trim(),
+    }
+  };
+}
+
+function _post(url, body) {
+  return fetch(url, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json','X-CSRF-Token': AG_CSRF},
+    body: body ? JSON.stringify(body) : '{}'
+  }).then(r => r.json());
+}
+
+function saveAgent() {
+  const body = _agentBody();
+  if (!body.name) { agToast('Name is required', true); return; }
+  const id = document.getElementById('agentId').value;
+  const url = id ? `/${AG_INDUSTRY}/agents/${id}/update` : `/${AG_INDUSTRY}/agents/create`;
+  _post(url, body).then(d => { if (d.ok) location.reload(); else agToast(d.error || 'Failed', true); });
+}
+function toggleAgent(id, status) {
+  const next = status === 'active' ? 'paused' : 'active';
+  _post(`/${AG_INDUSTRY}/agents/${id}/update`, {status: next})
+    .then(d => { if (d.ok) location.reload(); else agToast(d.error || 'Failed', true); });
+}
+function deleteAgent(id, name) {
+  if (!confirm('Delete agent "' + name + '"?')) return;
+  _post(`/${AG_INDUSTRY}/agents/${id}/delete`)
+    .then(d => { if (d.ok) location.reload(); else agToast(d.error || 'Failed', true); });
+}
+function agToast(msg, err) {
+  const t = document.createElement('div');
+  t.textContent = msg;
+  t.style.cssText = `position:fixed;bottom:24px;right:24px;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:600;z-index:9999;color:#fff;background:${err?'#d1242f':'#3fb950'};box-shadow:0 4px 16px rgba(0,0,0,0.4);`;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3000);
+}
+</script>
+{% endif %}
 {% endblock %}

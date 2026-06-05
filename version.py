@@ -1,7 +1,15 @@
-VERSION    = 'v3.2.31'
+VERSION    = 'v3.3.0'
 BUILD_DATE = '2026-06-04'
 
 CHANGES = [
+    'Agent builder: per-tenant agents a builder creates/edits/enables/disables for their client (TenantAgent, encrypted config) — managed in the workspace Agents page, via REST /api/v1/agents, and via `aios agents` CLI; the static AGENTS_DETAIL set now shows as a Template Library alongside them',
+    'Client Builders: assign a revocable, single-client implementer (TenantUser role=builder) who can configure all per-tenant aspects of one client — agents, integrations, documents, domains, staff users, settings — via UI and CLI, and never reach other clients or the super-admin panel',
+    'Scoped API tokens: super-admins issue per-builder Bearer tokens (Admin → client → Builders & Access) — SHA-256 hashed at rest, shown once, scoped, 90-day default expiry, last-used tracked, instantly revocable',
+    'REST API /api/v1: token-authenticated, hard-scoped to the token tenant — whoami, integrations, documents, domains, users, settings (api_bp.py)',
+    'aios CLI: zero-dependency command-line client for builders (cli/aios.py) — login, integrations, docs, domains, users, settings',
+    'Security: /api/v1 mutations are Bearer-only (cookie auth rejected) so the CSRF-exempt /api prefix adds no CSRF surface; builders forced to enrol 2FA like super-admins',
+    'Security: every /<industry>/* route is now locked to the logged-in tenant user’s own industry — closes URL-tampering cross-client access',
+    # v3.2.31 (auth + email fixes merged from master)
     'Email: OTP / 2FA emails now actually send via the Gmail API over HTTPS (notify.py) — the OAuth flow at /admin/gmail-auth stored a GMAIL_REFRESH_TOKEN but nothing ever used it; delivery order is now Gmail API → SMTP → console/log. Fixes "email token not received" on Railway where outbound SMTP is blocked',
     'Email: /admin/test-email diagnostics now report Gmail API config + live token-refresh status instead of only SMTP/Resend',
     'Auth fix: ADMIN_TOTP_SECRETS secrets self-heal — parser keeps only valid base32 chars (A-Z, 2-7), so a secret pasted with spaces, an ellipsis from the truncated log line, or other punctuation no longer yields "Non-base32 digit found"',

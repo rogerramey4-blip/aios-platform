@@ -2,3 +2,11 @@ __pycache__/
 *.pyc
 .env
 *.db
+*.db-shm
+*.db-wal
+
+# Secrets — never commit OAuth client secrets or local CLI tokens
+*client_secret*.json
+get_gmail_token.py
+.aios/
+aios-cli-config

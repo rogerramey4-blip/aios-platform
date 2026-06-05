@@ -9,13 +9,15 @@ except ImportError:
     pass
 
 from auth import (request_otp, verify_otp, check_authorized,
-                  require_auth, require_admin, mask_email, ALLOWED_EMAILS)
+                  require_auth, require_admin, mask_email, ALLOWED_EMAILS,
+                  industry_scope_violation)
 from models import init_db, Tenant, TenantUser, Document, Domain, TenantIntegration, db
 from security import init_security, audit
 from onboarding import onboard_bp
 from admin_bp import admin_bp
 from sync_bp import sync_bp
 from totp_bp import totp_bp, totp_enabled, verify_totp_code
+from api_bp import api_bp
 import werkzeug.utils as wz
 
 app = Flask(__name__)
@@ -47,6 +49,7 @@ app.register_blueprint(onboard_bp)
 app.register_blueprint(admin_bp)
 app.register_blueprint(sync_bp)
 app.register_blueprint(totp_bp)
+app.register_blueprint(api_bp)
 
 # ── Custom-domain tenant routing ──────────────────────────────────────────────
 @app.before_request
@@ -58,6 +61,22 @@ def _resolve_tenant_domain():
     dom = Domain.query.filter_by(domain=host, verified=True).first()
     if dom:
         session['_domain_tenant'] = dom.tenant_id
+
+
+@app.before_request
+def _enforce_industry_scope():
+    """
+    Lock every /<industry>/* route to the logged-in tenant user's own industry,
+    so a builder/user assigned to one client cannot reach another client's
+    workspace by editing the URL. Runs after routing, so request.view_args is
+    populated. Super-admins bypass (handled inside industry_scope_violation).
+    """
+    industry = (request.view_args or {}).get('industry')
+    if not industry or industry not in INDUSTRIES:
+        return
+    own = industry_scope_violation(industry)
+    if own:
+        return redirect(url_for('dashboard', industry=own))
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 def _greeting():
@@ -1776,6 +1795,10 @@ def _complete_login(email: str, method: str = 'email_otp'):
         session['tenant_industry'] = user.tenant.industry
         session['tenant_login_ts'] = now
         audit('login', f'/{method}', 'success', f'tenant_user={email} method={method}')
+        # Builders are privileged implementers — force authenticator enrollment
+        # on first sign-in, exactly like super-admins.
+        if user.role == 'builder' and method != 'totp' and not totp_enabled(email):
+            return redirect(url_for('totp.setup_get'))
         return redirect(url_for('dashboard', industry=user.tenant.industry))
     return redirect(url_for('login'))
 
@@ -1911,8 +1934,73 @@ def goals(industry):
 @app.route('/<industry>/agents')
 @require_auth
 def agents(industry):
+    from agents_service import list_agents
+    from models import AGENT_STATUSES
+    tenant_id = session.get('tenant_id')
+    tenant_agents = list_agents(tenant_id)[0] if tenant_id else []
     return _page(industry, 'agents', 'pages/agents_page.html',
-                 agents_detail=AGENTS_DETAIL.get(industry, []))
+                 agents_detail=AGENTS_DETAIL.get(industry, []),
+                 tenant_agents=tenant_agents,
+                 agent_statuses=AGENT_STATUSES,
+                 can_build_agents=_can_build_agents())
+
+
+def _can_build_agents() -> bool:
+    """Builders and tenant admins (and super-admins) may create/edit agents."""
+    if session.get('aios_auth'):
+        return True
+    return (session.get('tenant_auth') and
+            session.get('tenant_role') in ('builder', 'admin'))
+
+
+# ── Per-tenant agent builder (session UI; mirrors /api/v1/agents for the CLI) ──
+@app.route('/<industry>/agents/create', methods=['POST'])
+@require_auth
+def agents_create(industry):
+    from agents_service import create_agent
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        return jsonify({'ok': False, 'error': 'No tenant context'}), 400
+    if not _can_build_agents():
+        return jsonify({'ok': False, 'error': 'Builder or admin role required'}), 403
+    row, err = create_agent(tenant_id, request.get_json(silent=True) or {},
+                            created_by=session.get('tenant_email', ''))
+    if err:
+        return jsonify({'ok': False, 'error': err}), 400
+    audit('agent_created', f'agent:{row["key"]}', 'success', f'name={row["name"]}')
+    return jsonify({'ok': True, 'agent': row})
+
+
+@app.route('/<industry>/agents/<agent_id>/update', methods=['POST'])
+@require_auth
+def agents_update(industry, agent_id):
+    from agents_service import update_agent
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        return jsonify({'ok': False, 'error': 'No tenant context'}), 400
+    if not _can_build_agents():
+        return jsonify({'ok': False, 'error': 'Builder or admin role required'}), 403
+    row, err = update_agent(tenant_id, agent_id, request.get_json(silent=True) or {})
+    if err:
+        return jsonify({'ok': False, 'error': err}), (404 if err == 'Agent not found' else 400)
+    audit('agent_updated', f'agent:{row["key"]}', 'success', f'status={row["status"]}')
+    return jsonify({'ok': True, 'agent': row})
+
+
+@app.route('/<industry>/agents/<agent_id>/delete', methods=['POST'])
+@require_auth
+def agents_delete(industry, agent_id):
+    from agents_service import delete_agent
+    tenant_id = session.get('tenant_id')
+    if not tenant_id:
+        return jsonify({'ok': False, 'error': 'No tenant context'}), 400
+    if not _can_build_agents():
+        return jsonify({'ok': False, 'error': 'Builder or admin role required'}), 403
+    row, err = delete_agent(tenant_id, agent_id)
+    if err:
+        return jsonify({'ok': False, 'error': err}), 404
+    audit('agent_deleted', f'agent:{agent_id}', 'success', f'name={row["name"]}')
+    return jsonify({'ok': True})
 
 @app.route('/<industry>/use-cases')
 @require_auth

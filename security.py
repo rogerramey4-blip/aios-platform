@@ -136,6 +136,19 @@ def init_security(app):
                             headers={'Retry-After': str(_RL_WINDOW),
                                      'Content-Type': 'text/plain'})
 
+        # /api/v1 is Bearer-token only. The /api/ prefix is CSRF-exempt, which is
+        # safe ONLY because a mutating call here must carry a valid token (read
+        # from the Authorization header, never from cookies) — so a cookie-riding
+        # CSRF attack cannot authenticate. Enforce that explicitly: reject any
+        # mutating /api/v1 request lacking a valid token before it reaches a view.
+        if (path.startswith('/api/v1/') and
+                request.method not in _CSRF_SAFE_METHODS):
+            from auth import authenticate_api_token
+            if not authenticate_api_token():
+                return Response('{"ok":false,"error":"Missing or invalid API token."}',
+                                401, headers={'Content-Type': 'application/json',
+                                              'WWW-Authenticate': 'Bearer realm="AIOS API"'})
+
         # CSRF validation for mutating methods
         if (request.method not in _CSRF_SAFE_METHODS and not _csrf_exempt(path)):
             submitted = (request.form.get('_csrf_token') or

@@ -77,8 +77,9 @@
         <td style="padding:10px 6px;">
           <select onchange="setRole('{{ u.id }}', this.value)"
                   style="background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:4px 8px;color:var(--text-primary);font-size:12px;">
-            <option value="member" {% if u.role == 'member' %}selected{% endif %}>Member</option>
-            <option value="admin"  {% if u.role == 'admin' %}selected{% endif %}>Admin</option>
+            <option value="member"  {% if u.role == 'member' %}selected{% endif %}>Member</option>
+            <option value="admin"   {% if u.role == 'admin' %}selected{% endif %}>Admin</option>
+            <option value="builder" {% if u.role == 'builder' %}selected{% endif %}>Builder</option>
           </select>
         </td>
         <td style="padding:10px 6px;">
