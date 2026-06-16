@@ -114,6 +114,11 @@ def onboard_create():
         # Seed the industry user guide as a document in the new tenant's vault
         _seed_guide(tenant.id, industry, firm_name)
 
+        # Welcome the new admin with a one-click sign-in link. This is the only
+        # automatic contact a new customer gets — without it the account is created
+        # silently and the admin never knows it exists.
+        _send_welcome(admin_email, admin_name or contact_name, firm_name, plan, industry)
+
         log.info('[AIOS Onboard] Created tenant %s (%s) for %s', tenant.id, industry, firm_name)
         return jsonify({
             'ok':       True,
@@ -172,3 +177,18 @@ def _seed_guide(tenant_id: str, industry: str, firm_name: str):
         log.info('[AIOS Onboard] Seeded user guide for tenant %s (%s)', tenant_id, industry)
     except Exception as exc:
         log.warning('[AIOS Onboard] Could not seed guide for %s: %s', tenant_id, exc)
+
+
+def _send_welcome(admin_email: str, admin_name: str, firm_name: str,
+                  plan: str, industry: str):
+    """Email the new tenant admin a welcome + passwordless sign-in link."""
+    try:
+        import notify
+        login_url      = url_for('login', email=admin_email, _external=True)
+        plan_label     = PLAN_LABELS.get(plan, ('Trial',))[0]
+        industry_label = INDUSTRY_LABELS.get(industry, ('', ''))[1]
+        notify.send_welcome(admin_email, admin_name, firm_name,
+                            plan_label, login_url, industry_label)
+        log.info('[AIOS Onboard] Welcome email sent to %s', admin_email)
+    except Exception as exc:
+        log.warning('[AIOS Onboard] Could not send welcome email to %s: %s', admin_email, exc)

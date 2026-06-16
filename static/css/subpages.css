@@ -16,13 +16,19 @@ a.nav-item.active {
 
 /* Page header */
 .page-header { display:flex; flex-direction:column; gap:4px; }
+/* Headers with a direct action button (e.g. admin "+ New Client") lay out as a
+   row with the button right-aligned, instead of stacking it under the title. */
+.page-header:has(> .btn-primary), .page-header:has(> .btn) {
+  flex-direction:row; align-items:center; justify-content:space-between;
+}
 .page-breadcrumb { font-size:11px; color:var(--text-muted); display:flex; align-items:center; gap:5px; }
 .page-breadcrumb a { color:var(--blue); }
 .page-breadcrumb a:hover { text-decoration:underline; }
 .breadcrumb-sep { color:var(--border); }
 .page-title-row { display:flex; align-items:baseline; gap:12px; }
 .page-title { font-size:20px; font-weight:800; }
-.page-subtitle { font-size:12px; color:var(--text-secondary); }
+/* .page-subtitle is the canonical class; .page-sub is an alias used by some templates. */
+.page-subtitle, .page-sub { font-size:12px; color:var(--text-secondary); }
 
 /* Metric strip */
 .metric-strip { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }

@@ -1,7 +1,15 @@
-VERSION    = 'v3.3.1'
-BUILD_DATE = '2026-06-05'
+VERSION    = 'v3.4.0'
+BUILD_DATE = '2026-06-16'
 
 CHANGES = [
+    # v3.4.0 — foundation, onboarding & UX (audit-driven)
+    'DB: data layer is now DATABASE_URL-driven — set it to a managed Postgres for persistence across deploys (fixes total data loss on Railway/Render ephemeral filesystems); SQLite remains the local-dev fallback. Legacy postgres:// scheme auto-normalized; boot logs the active DB backend',
+    'Security: closed a cross-tenant document leak in offline sync — Document lookups in /api/sync/batch and conflict resolution are now scoped to the caller’s tenant, so a crafted sync batch can no longer read or mutate another tenant’s document by ID',
+    'Onboarding: new tenant admins now receive a welcome email with a one-click passwordless sign-in link on account creation — previously the account was created silently with no notification',
+    'Onboarding: document classification now covers all 8 industries — added HVAC, Plumbing, and Restaurant classifiers (previously these tagged every upload as "Other")',
+    'Onboarding: first-run getting-started checklist on the dashboard with real progress signals (documents uploaded, 2FA enrolled, agents) that self-completes and links to the industry guide',
+    'UI: defined the missing --bg-input design token (fixes invisible/transparent inputs on the onboarding wizard and admin console), added the .page-sub style + admin page-header layout fix, and the landing footer now shows the real app version',
+    # v3.3.1
     'Admin: per-account login-bypass toggle in Users & Access — a super-admin can disable ALL login verification for any account (super-admin or tenant user); a bypassed user signs in by entering their email only (no email OTP, no authenticator). Stored encrypted in SystemConfig with a LOGIN_BYPASS_EMAILS env-var fallback (redeploy-proof), audit-logged on every change, and never weakens the authorization/active check',
     # v3.3.0
     'Agent builder: per-tenant agents a builder creates/edits/enables/disables for their client (TenantAgent, encrypted config) — managed in the workspace Agents page, via REST /api/v1/agents, and via `aios agents` CLI; the static AGENTS_DETAIL set now shows as a Template Library alongside them',

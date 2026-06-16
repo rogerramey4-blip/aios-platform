@@ -1,6 +1,11 @@
 """
 SQLAlchemy multi-tenant models for AIOS.
-Single WAL-mode SQLite: aios_tenants.db
+
+Data layer is driven by DATABASE_URL:
+  • set  → managed Postgres (Railway/Render). Persists across deploys. PRODUCTION.
+  • unset → file-backed WAL SQLite (aios_tenants.db). Local dev only — the
+            container filesystem is EPHEMERAL on Railway/Render, so SQLite loses
+            all tenants/users/documents on every redeploy. Never run prod on it.
 """
 import os
 import uuid
@@ -13,21 +18,38 @@ from sqlalchemy import (
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker, scoped_session, Query as _BaseQuery
 from werkzeug.exceptions import NotFound
 
-DB_PATH = os.getenv('TENANT_DB_PATH', 'aios_tenants.db')
-_engine = create_engine(
-    f'sqlite:///{DB_PATH}',
-    connect_args={'check_same_thread': False},
-    echo=False,
-)
+_DATABASE_URL = os.getenv('DATABASE_URL', '').strip()
+if _DATABASE_URL:
+    # Managed Postgres. Some providers still emit the legacy 'postgres://' scheme,
+    # which SQLAlchemy dropped — normalize it to 'postgresql://'.
+    if _DATABASE_URL.startswith('postgres://'):
+        _DATABASE_URL = 'postgresql://' + _DATABASE_URL[len('postgres://'):]
+    _IS_SQLITE = False
+    _engine = create_engine(
+        _DATABASE_URL,
+        pool_pre_ping=True,   # transparently drop connections killed by idle timeouts
+        pool_recycle=280,     # recycle before typical 300s managed-PG idle cutoff
+        echo=False,
+    )
+else:
+    # Local-dev fallback only — see module docstring; do NOT use in production.
+    DB_PATH = os.getenv('TENANT_DB_PATH', 'aios_tenants.db')
+    _IS_SQLITE = True
+    _engine = create_engine(
+        f'sqlite:///{DB_PATH}',
+        connect_args={'check_same_thread': False},
+        echo=False,
+    )
 
-@event.listens_for(_engine, 'connect')
-def _set_pragmas(dbapi_conn, _):
-    cur = dbapi_conn.cursor()
-    cur.execute('PRAGMA journal_mode=WAL')
-    cur.execute('PRAGMA foreign_keys=ON')
-    cur.execute('PRAGMA synchronous=NORMAL')
-    cur.execute('PRAGMA busy_timeout=10000')
-    cur.close()
+if _IS_SQLITE:
+    @event.listens_for(_engine, 'connect')
+    def _set_pragmas(dbapi_conn, _):
+        cur = dbapi_conn.cursor()
+        cur.execute('PRAGMA journal_mode=WAL')
+        cur.execute('PRAGMA foreign_keys=ON')
+        cur.execute('PRAGMA synchronous=NORMAL')
+        cur.execute('PRAGMA busy_timeout=10000')
+        cur.close()
 
 class _Query(_BaseQuery):
     """Adds Flask-SQLAlchemy-style 404 helpers (this project uses plain SQLAlchemy)."""
@@ -425,7 +447,8 @@ def _col_ddl(col) -> str:
     if d is not None and getattr(d, 'is_scalar', False):
         val = d.arg
         if isinstance(val, bool):
-            default = f' DEFAULT {1 if val else 0}'
+            # Postgres BOOLEAN wants TRUE/FALSE; SQLite stores 1/0.
+            default = f' DEFAULT {("TRUE" if val else "FALSE") if not _IS_SQLITE else (1 if val else 0)}'
         elif isinstance(val, (int, float)):
             default = f' DEFAULT {val}'
         elif isinstance(val, str):
@@ -462,9 +485,17 @@ def _migrate():
 
 
 def init_db():
+    import logging
+    log = logging.getLogger(__name__)
+    # Make the active DB backend self-evident in deploy logs (warning level so it
+    # surfaces on Railway/Render regardless of log filtering).
+    if _IS_SQLITE:
+        log.warning('[AIOS] DB backend: sqlite (%s) — EPHEMERAL on Railway/Render; '
+                    'set DATABASE_URL to a managed Postgres for persistence', DB_PATH)
+    else:
+        log.warning('[AIOS] DB backend: %s @ %s', _engine.dialect.name, _engine.url.host)
     Base.metadata.create_all(_engine)
     try:
         _migrate()
     except Exception:
-        import logging
-        logging.getLogger(__name__).warning('[AIOS] schema migration skipped', exc_info=True)
+        log.warning('[AIOS] schema migration skipped', exc_info=True)

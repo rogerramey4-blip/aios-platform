@@ -78,6 +78,35 @@ _CLASSIFIERS: dict[str, dict[str, list[str]]] = {
         'Compliance':         ['nar', 'fair housing', 'regulation', 'compliance', 'license'],
         'Market Report':      ['market report', 'market analysis', 'cma', 'median price'],
     },
+    'hvac': {
+        'Estimate/Quote':     ['estimate', 'quote', 'proposal', 'pricing', 'scope of work'],
+        'Service Agreement':  ['service agreement', 'maintenance agreement', 'maintenance plan', 'annual contract'],
+        'Work Order':         ['work order', 'service call', 'dispatch', 'job ticket', 'technician'],
+        'Invoice':            ['invoice', 'billing', 'amount due', 'payment due', 'balance'],
+        'Inspection Report':  ['inspection', 'load calculation', 'manual j', 'diagnostic', 'efficiency test'],
+        'Permit':             ['permit', 'mechanical permit', 'code', 'inspection passed', 'certificate'],
+        'Warranty':           ['warranty', 'registration', 'parts warranty', 'labor warranty', 'rma'],
+        'Equipment Spec':     ['seer', 'btu', 'tonnage', 'condenser', 'air handler', 'refrigerant', 'datasheet'],
+    },
+    'plumbing': {
+        'Estimate/Quote':     ['estimate', 'quote', 'proposal', 'pricing', 'scope of work'],
+        'Service Agreement':  ['service agreement', 'maintenance agreement', 'service contract', 'annual contract'],
+        'Work Order':         ['work order', 'service call', 'dispatch', 'job ticket', 'plumber'],
+        'Invoice':            ['invoice', 'billing', 'amount due', 'payment due', 'balance'],
+        'Inspection Report':  ['inspection', 'camera inspection', 'leak detection', 'backflow test', 'diagnostic'],
+        'Permit':             ['permit', 'plumbing permit', 'code', 'inspection passed', 'certificate'],
+        'Warranty':           ['warranty', 'guarantee', 'parts warranty', 'labor warranty', 'rma'],
+        'Compliance':         ['backflow', 'cross-connection', 'epa', 'water authority', 'compliance'],
+    },
+    'restaurant': {
+        'Vendor Invoice':     ['invoice', 'purchase order', 'supplier', 'distributor', 'amount due'],
+        'Supplier Contract':  ['contract', 'agreement', 'supply agreement', 'terms', 'pricing'],
+        'Health Inspection':  ['health inspection', 'inspection report', 'food safety', 'violation', 'score'],
+        'Permit/License':     ['permit', 'license', 'liquor license', 'food handler', 'certificate', 'servsafe'],
+        'Menu/Recipe':        ['menu', 'recipe', 'ingredient', 'plating', 'food cost', 'portion'],
+        'Staff/Scheduling':   ['schedule', 'shift', 'payroll', 'timecard', 'staff', 'tip report'],
+        'Compliance':         ['haccp', 'osha', 'allergen', 'sanitation', 'compliance', 'regulation'],
+    },
 }
 
 _DEFAULT_CATEGORIES = {

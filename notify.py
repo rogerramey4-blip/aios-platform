@@ -196,6 +196,57 @@ def send_conflict_notification(conflict, app_url: str = ''):
                  other_user=conflict.local_user_email or '', **params))
 
 
+def send_welcome(email: str, name: str, firm_name: str, plan_label: str,
+                 login_url: str, industry_label: str = ''):
+    """Welcome a newly-onboarded tenant admin and give them a one-click sign-in link.
+
+    AIOS uses passwordless login, so we don't send a password — the button takes
+    them to the login page pre-filled with their email, where a one-time code is
+    sent. This is the first (and only automatic) contact a new customer receives,
+    so it must clearly tell them the account exists and how to get in.
+    """
+    if not email:
+        return
+    first = (name or '').strip().split(' ')[0] or 'there'
+    industry_line = f' for <strong style="color:#e6edf3;">{industry_label}</strong>' if industry_label else ''
+    html = f"""<!DOCTYPE html>
+<html><body style="margin:0;padding:24px;background:#0a0e14;font-family:'Inter',Arial,sans-serif;">
+<div style="max-width:520px;margin:0 auto;background:#0d1117;border:1px solid #30363d;border-radius:12px;overflow:hidden;">
+  <div style="padding:26px 30px 20px;border-bottom:1px solid #21262d;">
+    <div style="font-size:28px;font-weight:900;letter-spacing:4px;color:#e6edf3;">A<span style="color:#e3b341;">IOS</span></div>
+    <div style="font-size:11px;color:#484f58;letter-spacing:1px;text-transform:uppercase;margin-top:4px;">Welcome aboard</div>
+  </div>
+  <div style="padding:26px 30px;">
+    <p style="font-size:15px;color:#e6edf3;margin:0 0 16px;">Hi {first},</p>
+    <p style="font-size:14px;color:#8b949e;line-height:1.6;margin:0 0 16px;">
+      Your AIOS workspace for <strong style="color:#e6edf3;">{firm_name}</strong>{industry_line} is ready.
+      You've been set up as the <strong style="color:#e6edf3;">administrator</strong> on the
+      <strong style="color:#e3b341;">{plan_label}</strong> plan.
+    </p>
+    <p style="font-size:14px;color:#8b949e;line-height:1.6;margin:0 0 22px;">
+      AIOS uses secure passwordless sign-in — no password to remember. Click below and we'll
+      email you a one-time access code to log in.
+    </p>
+    <a href="{login_url}" style="display:inline-block;background:#e3b341;color:#0d1117;text-decoration:none;padding:12px 28px;border-radius:8px;font-size:14px;font-weight:800;">Sign in to AIOS</a>
+    <p style="font-size:12px;color:#484f58;margin:18px 0 0;line-height:1.5;">
+      Or go to <a href="{login_url}" style="color:#e3b341;">{login_url}</a> and enter
+      <strong style="color:#8b949e;">{email}</strong>.<br>
+      Once inside, your industry Getting-Started guide is waiting on your dashboard.
+    </p>
+  </div>
+  <div style="padding:14px 30px;background:#161b22;border-top:1px solid #21262d;font-size:11px;color:#484f58;text-align:center;">
+    Powered by <span style="color:#e3b341;font-weight:700;">AI Evolution Services</span>
+  </div>
+</div></body></html>"""
+    text = (f'Hi {first},\n\n'
+            f'Your AIOS workspace for {firm_name} is ready. You are the administrator '
+            f'on the {plan_label} plan.\n\n'
+            f'AIOS uses passwordless sign-in. Go to {login_url} and enter {email} to '
+            f'receive a one-time access code.\n\n'
+            f'— AI Evolution Services')
+    send(email, f'Welcome to AIOS — {firm_name} is ready', html, text)
+
+
 def send_sync_complete(email: str, accepted: int, conflicts: int, app_url: str = ''):
     if not email:
         return

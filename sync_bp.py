@@ -133,11 +133,25 @@ def _apply_change(resource_type, resource_id, field, new_value,
     return _apply_generic(url, method, payload, email, tenant_id)
 
 
+def _scoped_document(resource_id, tenant_id):
+    """Look up a Document, scoped to the caller's tenant.
+
+    A tenant user's queries MUST be confined to their own tenant — otherwise a
+    crafted sync batch referencing another tenant's document ID could read or
+    mutate it (cross-tenant isolation breach). Super-admins (no tenant_id) retain
+    global access by design.
+    """
+    q = Document.query.filter_by(id=resource_id)
+    if tenant_id:
+        q = q.filter_by(tenant_id=tenant_id)
+    return q.first()
+
+
 def _apply_document_change(resource_id, field, new_value, base_version,
                             client_ts, email, tenant_id, payload):
-    doc = Document.query.filter_by(id=resource_id).first()
+    doc = _scoped_document(resource_id, tenant_id)
     if not doc:
-        return {'conflict': False}  # resource deleted — nothing to conflict
+        return {'conflict': False}  # resource deleted / not in tenant — nothing to conflict
 
     current_version = doc.version or 1
 
@@ -286,7 +300,8 @@ def _apply_resolution(conflict, use_local: bool):
     """Apply the chosen resolution value back to the resource."""
     if conflict.resource_type != 'document':
         return
-    doc = Document.query.filter_by(id=conflict.resource_id).first()
+    # Scope to the conflict's owning tenant — resolution must never write across tenants.
+    doc = _scoped_document(conflict.resource_id, conflict.tenant_id)
     if not doc:
         return
     if use_local:

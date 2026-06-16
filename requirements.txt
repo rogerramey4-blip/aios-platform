@@ -3,6 +3,7 @@ gunicorn>=21.2.0
 python-dotenv>=1.0.0
 cryptography>=42.0.0
 sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.0   # Postgres driver (production via DATABASE_URL)
 pypdf>=4.0.0
 python-docx>=1.1.0
 werkzeug>=3.0.0
