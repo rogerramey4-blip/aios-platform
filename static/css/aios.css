@@ -9,6 +9,7 @@
   --bg-card-alt:    #1c2128;
   --bg-tertiary:    #21262d;
   --bg-hover:       #21262d;
+  --bg-input:       #0d1117;
   --border:         #30363d;
   --border-light:   #21262d;
 
@@ -37,6 +38,7 @@
   --bg-card-alt:    #f6f8fa;
   --bg-tertiary:    #eaeef2;
   --bg-hover:       #eaeef2;
+  --bg-input:       #ffffff;
   --border:         #d0d7de;
   --border-light:   #eaeef2;
   --text-primary:   #1f2328;
@@ -789,4 +791,106 @@ button { border: none; cursor: pointer; font-family: inherit; }
   font-size: 13px;
   color: var(--text-secondary);
   line-height: 1.7;
+}
+
+/* ── Getting-Started Checklist (first-run onboarding) ───────────── */
+.gs-card {
+  background: linear-gradient(180deg, var(--gold-dim), var(--bg-card));
+  border: 1px solid var(--gold);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  margin-bottom: 20px;
+}
+.gs-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.gs-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+.gs-sub {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 3px;
+}
+.gs-dismiss {
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 15px;
+  line-height: 1;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  transition: color var(--ease), background var(--ease);
+}
+.gs-dismiss:hover { color: var(--text-primary); background: var(--bg-hover); }
+.gs-bar {
+  height: 4px;
+  background: var(--bg-tertiary);
+  border-radius: 999px;
+  overflow: hidden;
+  margin: 14px 0 16px;
+}
+.gs-bar-fill {
+  height: 100%;
+  background: var(--gold);
+  border-radius: 999px;
+  transition: width var(--ease);
+}
+.gs-steps {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.gs-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg-card-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  transition: border-color var(--ease), background var(--ease);
+}
+.gs-step:hover { border-color: var(--gold); background: var(--bg-hover); }
+.gs-step.done { opacity: 0.7; }
+.gs-check {
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+.gs-step.done .gs-check {
+  background: var(--green);
+  color: #0d1117;
+  border-color: var(--green);
+}
+.gs-step-body { flex: 1 1 auto; min-width: 0; }
+.gs-step-title { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.gs-step-desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+.gs-step-cta {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--gold);
+  white-space: nowrap;
+}
+.gs-step.done .gs-step-cta { color: var(--green); }
+@media (max-width: 720px) {
+  .gs-steps { grid-template-columns: 1fr; }
 }

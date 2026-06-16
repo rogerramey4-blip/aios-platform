@@ -87,8 +87,59 @@ def _date_str():
     n = datetime.now()
     return f"{n.strftime('%A, %B')} {n.day}, {n.year}"
 
+@app.context_processor
+def _inject_version():
+    """Expose the real app version to every template (avoids hardcoded, drifting strings)."""
+    try:
+        from version import VERSION
+    except Exception:
+        VERSION = ''
+    return {'app_version': VERSION}
+
 def _ctx(data):
     return {**data, 'greeting': _greeting(), 'now': _date_str()}
+
+def _getting_started(industry):
+    """Build the new-tenant getting-started checklist with REAL progress signals.
+
+    Steps reflect actual account state (documents uploaded, 2FA enrolled, agents
+    deployed) so the checklist self-completes as the user makes progress rather
+    than being a static mockup. Returns None for super-admins / no tenant context.
+    """
+    tid   = session.get('tenant_id')
+    email = session.get('tenant_email')
+    if not tid:
+        return None
+    try:
+        docs_count = Document.query.filter_by(tenant_id=tid).count()
+    except Exception:
+        docs_count = 0
+    try:
+        from agents_service import list_agents
+        agents_count = len(list_agents(tid)[0] or [])
+    except Exception:
+        agents_count = 0
+    try:
+        twofa = totp_enabled(email)
+    except Exception:
+        twofa = False
+    steps = [
+        {'title': 'Read your Getting-Started guide',
+         'desc':  'A quick tour of AIOS tailored to your industry.',
+         'href':  f'/{industry}/guide', 'cta': 'Open guide', 'done': False},
+        {'title': 'Upload your first document',
+         'desc':  'AIOS classifies and summarizes it automatically.',
+         'href':  f'/{industry}/documents', 'cta': 'Go to vault', 'done': docs_count > 0},
+        {'title': 'Secure your account with an authenticator',
+         'desc':  'Add app-based 2FA for stronger sign-in.',
+         'href':  '/totp/setup', 'cta': 'Set up 2FA', 'done': twofa},
+        {'title': 'Review your AI agents',
+         'desc':  'See the agents working for your business.',
+         'href':  f'/{industry}/agents', 'cta': 'View agents', 'done': agents_count > 0},
+    ]
+    done = sum(1 for s in steps if s['done'])
+    return {'steps': steps, 'done': done, 'total': len(steps),
+            'first_run': session.pop('tenant_first_run', False)}
 
 # ── Nav Builders ──────────────────────────────────────────────────────────────
 def _nav(industry, active_key, pipeline_label, tools):
@@ -1786,6 +1837,7 @@ def _complete_login(email: str, method: str = 'email_otp'):
         return redirect(url_for('index'))
     user = TenantUser.query.filter_by(email=email, active=True).first()
     if user:
+        session['tenant_first_run'] = (user.last_login is None)
         user.last_login = datetime.utcnow()
         db.commit()
         session['tenant_auth']     = True
@@ -1900,7 +1952,8 @@ def dashboard(industry):
         return redirect('/')
     d = {**cfg, 'industry': industry,
          'nav': _nav(industry, 'dashboard', cfg['pipeline_label'], cfg['tools'])}
-    return render_template('dashboard.html', data=d, **_ctx(d))
+    return render_template('dashboard.html', data=d, **_ctx(d),
+                           getting_started=_getting_started(industry))
 
 # ── Sub-pages (shared pattern) ────────────────────────────────────────────────
 def _page(industry, active_key, template, **extra):

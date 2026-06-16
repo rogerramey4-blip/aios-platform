@@ -6,6 +6,48 @@
   <div class="greeting-date">{{ now }}</div>
 </div>
 
+{% if getting_started and getting_started.done < getting_started.total %}
+<div class="gs-card" id="gettingStarted"
+     data-firstrun="{{ '1' if getting_started.first_run else '0' }}"
+     data-progress="{{ getting_started.done }}">
+  <div class="gs-head">
+    <div>
+      <div class="gs-title">🚀 Get started with AIOS</div>
+      <div class="gs-sub">{{ getting_started.done }} of {{ getting_started.total }} steps complete — finish setting up your workspace.</div>
+    </div>
+    <button type="button" class="gs-dismiss" onclick="dismissGettingStarted()" aria-label="Dismiss getting-started checklist">✕</button>
+  </div>
+  <div class="gs-bar"><div class="gs-bar-fill" style="width: {{ (getting_started.done / getting_started.total * 100) | round }}%"></div></div>
+  <div class="gs-steps">
+    {% for s in getting_started.steps %}
+    <a class="gs-step{% if s.done %} done{% endif %}" href="{{ s.href }}">
+      <div class="gs-check" aria-hidden="true">{% if s.done %}✓{% else %}{{ loop.index }}{% endif %}</div>
+      <div class="gs-step-body">
+        <div class="gs-step-title">{{ s.title }}</div>
+        <div class="gs-step-desc">{{ s.desc }}</div>
+      </div>
+      <span class="gs-step-cta">{% if s.done %}Done{% else %}{{ s.cta }} →{% endif %}</span>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+<script>
+  (function () {
+    var el = document.getElementById('gettingStarted');
+    if (!el) return;
+    var key = 'aios_gs_dismissed';
+    // First login always shows the checklist (and clears any stale dismissal).
+    if (el.dataset.firstrun === '1') { try { localStorage.removeItem(key); } catch (e) {} }
+    else if (localStorage.getItem(key) === '1') { el.style.display = 'none'; }
+  })();
+  function dismissGettingStarted() {
+    try { localStorage.setItem('aios_gs_dismissed', '1'); } catch (e) {}
+    var el = document.getElementById('gettingStarted');
+    if (el) el.style.display = 'none';
+  }
+</script>
+{% endif %}
+
 <div class="kpi-row">
   {% for k in data.kpis %}
   <div class="kpi-card">
